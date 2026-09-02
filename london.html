@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tz="Europe/London">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spanish Classes with Yill - Availability</title>
+  <title>Spanish Classes with Yill - Availability - England BST/GMT</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -18,19 +18,12 @@
     </div>
 
     <div class="header-right">
-      <!-- LANGUAGE SWITCHER -->
-      <div class="lang-switch" aria-label="Language Selector">
-        <span class="lang-link active" title="English">🇺🇸 EN</span>
-        <span class="lang-divider">|</span>
-        <a href="es.html" class="lang-link" title="Español">🇪🇸 ES</a>
-      </div>
-
       <div class="timezone-control">
         <label for="tz-select">Time Zone:</label>
         <select id="tz-select" class="timezone-select" onchange="changeTimezone(this.value)">
-          <option value="America/Los_Angeles" selected>Washington State (USA - PT)</option>
+          <option value="America/Los_Angeles">Washington State (USA - PT)</option>
           <option value="America/Lima">Peru (PET)</option>
-          <option value="Europe/London">England (BST/GMT)</option>
+          <option value="Europe/London" selected>England (BST/GMT)</option>
           <option value="Europe/Rome">Italy (CEST/CET)</option>
         </select>
       </div>

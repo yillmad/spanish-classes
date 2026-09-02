@@ -1,65 +1,52 @@
 /**
- * Spanish Classes with Yill - Calendar & Booking Logic
+ * Spanish Classes with Yill - Calendar & Availability Logic
  */
 
-const translations = {
-  en: {
-    weekDays: [
-      { name: 'Mon', date: 20, full: 'Monday 20' },
-      { name: 'Tue', date: 21, full: 'Tuesday 21' },
-      { name: 'Wed', date: 22, full: 'Wednesday 22', isToday: true },
-      { name: 'Thu', date: 23, full: 'Thursday 23' },
-      { name: 'Fri', date: 24, full: 'Friday 24' },
-      { name: 'Sat', date: 25, full: 'Saturday 25' },
-      { name: 'Sun', date: 26, full: 'Sunday 26' }
-    ],
-    available: 'Available',
-    selected: '✓ Selected',
-    selectedCount: (n) => `${n} slot${n > 1 ? 's' : ''} selected`,
-    slotAt: (day, time, tz) => `${day} at ${time} (${tz})`,
-    defaultStudentName: 'Student',
-    defaultSubjectList: 'Spanish Classes',
-    greeting: 'Hi Yill, I would like to book these times for Spanish classes:',
-    classFocusLabel: 'Class Focus:',
-    studentNameLabel: "Student's Name:",
-    notesLabel: 'Notes:',
-    gmailSubject: (name) => `Spanish Class Booking Request - ${name}`
-  },
-  es: {
-    weekDays: [
-      { name: 'lun', date: 20, full: 'Lunes 20' },
-      { name: 'mar', date: 21, full: 'Martes 21' },
-      { name: 'mié', date: 22, full: 'Miércoles 22', isToday: true },
-      { name: 'jue', date: 23, full: 'Jueves 23' },
-      { name: 'vie', date: 24, full: 'Viernes 24' },
-      { name: 'sáb', date: 25, full: 'Sábado 25' },
-      { name: 'dom', date: 26, full: 'Domingo 26' }
-    ],
-    available: 'Disponible',
-    selected: '✓ Seleccionado',
-    selectedCount: (n) => `${n} horario${n > 1 ? 's' : ''} seleccionado${n > 1 ? 's' : ''}`,
-    slotAt: (day, time, tz) => `${day} a las ${time} (${tz})`,
-    defaultStudentName: 'Estudiante',
-    defaultSubjectList: 'Clases de Español',
-    greeting: 'Hola Yill, me gustaría reservar estos horarios para clases de español:',
-    classFocusLabel: 'Enfoque de la clase:',
-    studentNameLabel: 'Nombre del estudiante:',
-    notesLabel: 'Notas:',
-    gmailSubject: (name) => `Solicitud de Reserva de Clases de Español - ${name}`
-  }
-};
-
-const currentLang = document.documentElement.lang === 'es' ? 'es' : 'en';
-const i18n = translations[currentLang];
-const weekDays = i18n.weekDays;
+const weekDays = [
+  { name: 'lun', date: 20, full: 'Monday 20' },
+  { name: 'mar', date: 21, full: 'Tuesday 21' },
+  { name: 'mié', date: 22, full: 'Wednesday 22', isToday: true },
+  { name: 'jue', date: 23, full: 'Thursday 23' },
+  { name: 'vie', date: 24, full: 'Friday 24' },
+  { name: 'sáb', date: 25, full: 'Saturday 25' },
+  { name: 'dom', date: 26, full: 'Sunday 26' }
+];
 
 const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
 
 const timezoneOffsets = {
-  'America/Los_Angeles': 0, // Main View: Washington State (PT)
-  'America/Lima': 2,        // Peru (PET) -> +2 hours relative to WA
-  'Europe/London': 8,       // England -> +8 hours
-  'Europe/Rome': 9          // Italy -> +9 hours
+  'America/Los_Angeles': 0, // Washington State (USA - PT)
+  'America/Lima': 2,        // Peru (PET)
+  'Europe/London': 8,       // England (BST/GMT)
+  'Europe/Rome': 9          // Italy (CEST/CET)
+};
+
+const timezonePages = {
+  'America/Los_Angeles': 'washington.html',
+  'America/Lima': 'peru.html',
+  'Europe/London': 'london.html',
+  'Europe/Rome': 'rome.html'
+};
+
+const timezoneAliases = {
+  'wa': 'America/Los_Angeles',
+  'washington': 'America/Los_Angeles',
+  'pt': 'America/Los_Angeles',
+  'us': 'America/Los_Angeles',
+  'usa': 'America/Los_Angeles',
+  'peru': 'America/Lima',
+  'lima': 'America/Lima',
+  'pet': 'America/Lima',
+  'london': 'Europe/London',
+  'england': 'Europe/London',
+  'uk': 'Europe/London',
+  'gmt': 'Europe/London',
+  'bst': 'Europe/London',
+  'rome': 'Europe/Rome',
+  'italy': 'Europe/Rome',
+  'italia': 'Europe/Rome',
+  'cet': 'Europe/Rome',
+  'cest': 'Europe/Rome'
 };
 
 let currentTz = 'America/Los_Angeles';
@@ -88,7 +75,6 @@ const baseAvailableSlots = [
   { dayIdx: 6, hours: [] }
 ];
 
-// SMART GROUPING: MERGES ADJACENT 30-MIN SLOTS INTO 1-HOUR BLOCKS WHENEVER POSSIBLE
 function groupSlotsIntoBlocks() {
   const groupedEvents = [];
   let eventId = 1;
@@ -103,20 +89,20 @@ function groupSlotsIntoBlocks() {
 
       if (current % 1 === 0 && next === current + 0.5) {
         groupedEvents.push({
-          id: `block-${eventId++}`,
+          id: 'block-' + (eventId++),
           dayIdx: dayData.dayIdx,
           startHour: current,
           durationHours: 1.0,
-          title: i18n.available
+          title: 'Available'
         });
         i += 2;
       } else {
         groupedEvents.push({
-          id: `block-${eventId++}`,
+          id: 'block-' + (eventId++),
           dayIdx: dayData.dayIdx,
           startHour: current,
           durationHours: 0.5,
-          title: i18n.available
+          title: 'Available'
         });
         i += 1;
       }
@@ -133,7 +119,7 @@ function formatHourGoogle(hour24) {
   if (hour24 === 0) return '';
   const period = hour24 >= 12 ? 'p.m.' : 'a.m.';
   const h = hour24 % 12 === 0 ? 12 : hour24 % 12;
-  return `${h} ${period}`;
+  return h + ' ' + period;
 }
 
 function formatTimeLabel(floatHour24) {
@@ -141,35 +127,34 @@ function formatTimeLabel(floatHour24) {
   const mins = Math.round((floatHour24 % 1) * 60);
   const period = h >= 12 ? 'p.m.' : 'a.m.';
   const displayHour = h % 12 === 0 ? 12 : h % 12;
-  const displayMins = mins === 0 ? ':00' : `:${mins < 10 ? '0' : ''}${mins}`;
-  return `${displayHour}${displayMins} ${period}`;
+  const displayMins = mins === 0 ? ':00' : ':' + (mins < 10 ? '0' : '') + mins;
+  return displayHour + displayMins + ' ' + period;
 }
 
 function renderCalendar() {
   // 1. Render Header
   const headerContainer = document.getElementById('week-header');
-  if (!headerContainer) return;
-  headerContainer.innerHTML = '';
-  weekDays.forEach(day => {
-    const dayEl = document.createElement('div');
-    dayEl.className = `day-col-header ${day.isToday ? 'is-today' : ''}`;
-    dayEl.innerHTML = `
-      <span class="day-name">${day.name}</span>
-      <span class="day-number">${day.date}</span>
-    `;
-    headerContainer.appendChild(dayEl);
-  });
+  if (headerContainer) {
+    headerContainer.innerHTML = '';
+    weekDays.forEach(day => {
+      const dayEl = document.createElement('div');
+      dayEl.className = 'day-col-header' + (day.isToday ? ' is-today' : '');
+      dayEl.innerHTML = '<span class="day-name">' + day.name + '</span><span class="day-number">' + day.date + '</span>';
+      headerContainer.appendChild(dayEl);
+    });
+  }
 
   // 2. Render Time Column
   const timeColumn = document.getElementById('time-column');
-  if (!timeColumn) return;
-  timeColumn.innerHTML = '';
-  displayHours24.forEach(hour24 => {
-    const timeLabel = document.createElement('div');
-    timeLabel.className = 'time-slot-label';
-    timeLabel.innerText = formatHourGoogle(hour24);
-    timeColumn.appendChild(timeLabel);
-  });
+  if (timeColumn) {
+    timeColumn.innerHTML = '';
+    displayHours24.forEach(hour24 => {
+      const timeLabel = document.createElement('div');
+      timeLabel.className = 'time-slot-label';
+      timeLabel.innerText = formatHourGoogle(hour24);
+      timeColumn.appendChild(timeLabel);
+    });
+  }
 
   // 3. Render Grid
   const daysGrid = document.getElementById('days-grid');
@@ -189,7 +174,7 @@ function renderCalendar() {
     if (day.isToday) {
       const timeLine = document.createElement('div');
       timeLine.className = 'current-time-line';
-      timeLine.style.top = `${18 * 60 + 30}px`;
+      timeLine.style.top = (18 * 60 + 30) + 'px';
       dayCol.appendChild(timeLine);
     }
 
@@ -197,7 +182,7 @@ function renderCalendar() {
   });
 
   // 4. Render Event Chips
-  const offset = timezoneOffsets[currentTz];
+  const offset = timezoneOffsets[currentTz] !== undefined ? timezoneOffsets[currentTz] : 0;
 
   baseEvents.forEach(evt => {
     let adjustedHour = evt.startHour + offset;
@@ -209,18 +194,18 @@ function renderCalendar() {
       const dayCol = daysGrid.children[targetDayIdx];
       if (dayCol) {
         const chip = document.createElement('div');
-        const slotKey = `${evt.id}-${targetDayIdx}`;
+        const slotKey = evt.id + '-' + targetDayIdx;
         const isSelected = selectedSlots.some(s => s.slotKey === slotKey);
         
         const topPx = finalHour * 60 + 1;
         const heightPx = evt.durationHours * 60 - 2;
-        const timeRangeText = `${formatTimeLabel(finalHour)} - ${formatTimeLabel(finalHour + evt.durationHours)}`;
+        const timeRangeText = formatTimeLabel(finalHour) + ' - ' + formatTimeLabel(finalHour + evt.durationHours);
 
-        chip.className = `event-chip ${isSelected ? 'selected' : ''}`;
-        chip.innerText = isSelected ? i18n.selected : (evt.durationHours === 0.5 ? formatTimeLabel(finalHour) : i18n.available);
+        chip.className = 'event-chip' + (isSelected ? ' selected' : '');
+        chip.innerText = isSelected ? '✓ Selected' : (evt.durationHours === 0.5 ? formatTimeLabel(finalHour) : 'Available');
         chip.title = timeRangeText;
-        chip.style.top = `${topPx}px`;
-        chip.style.height = `${heightPx}px`;
+        chip.style.top = topPx + 'px';
+        chip.style.height = heightPx + 'px';
 
         chip.onclick = (e) => {
           e.stopPropagation();
@@ -258,64 +243,100 @@ function updateTopBadge() {
 
   if (selectedSlots.length > 0) {
     badge.style.display = 'flex';
-    countText.innerText = i18n.selectedCount(selectedSlots.length);
+    countText.innerText = selectedSlots.length + ' slot' + (selectedSlots.length > 1 ? 's' : '') + ' selected';
   } else {
     badge.style.display = 'none';
   }
 }
 
-function changeTimezone(newTz) {
-  currentTz = newTz;
+function changeTimezone(newTz, shouldRedirect) {
+  if (shouldRedirect === undefined) shouldRedirect = true;
+  if (timezoneOffsets[newTz] !== undefined) {
+    currentTz = newTz;
+  }
+  const tzSelect = document.getElementById('tz-select');
+  if (tzSelect && tzSelect.value !== currentTz) {
+    tzSelect.value = currentTz;
+  }
   renderCalendar();
+
+  if (shouldRedirect && timezonePages[currentTz]) {
+    const targetPage = timezonePages[currentTz];
+    const currentPath = window.location.pathname;
+    if (!currentPath.endsWith('/' + targetPage) && !currentPath.endsWith(targetPage)) {
+      window.location.href = targetPage;
+    }
+  }
+}
+
+function detectInitialTimezone() {
+  const docTz = document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz'));
+  if (docTz && timezoneOffsets[docTz] !== undefined) {
+    return docTz;
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tzParam = params.get('tz');
+    if (tzParam) {
+      const lower = tzParam.toLowerCase();
+      if (timezoneOffsets[tzParam] !== undefined) return tzParam;
+      if (timezoneAliases[lower]) return timezoneAliases[lower];
+    }
+  } catch (e) {}
+
+  const tzSelect = document.getElementById('tz-select');
+  if (tzSelect && tzSelect.value && timezoneOffsets[tzSelect.value] !== undefined) {
+    return tzSelect.value;
+  }
+
+  return 'America/Los_Angeles';
 }
 
 function openBookingModal() {
   const listContainer = document.getElementById('selected-slots-list');
   const tzSelect = document.getElementById('tz-select');
-  const tzName = tzSelect.options[tzSelect.selectedIndex].text;
+  const tzName = (tzSelect && tzSelect.options[tzSelect.selectedIndex]) ? tzSelect.options[tzSelect.selectedIndex].text : '';
 
-  listContainer.innerHTML = '';
-  selectedSlots.forEach(s => {
-    const li = document.createElement('li');
-    li.innerText = i18n.slotAt(s.dayText, s.timeText, tzName);
-    listContainer.appendChild(li);
-  });
+  if (listContainer) {
+    listContainer.innerHTML = '';
+    selectedSlots.forEach(s => {
+      const li = document.createElement('li');
+      li.innerText = s.dayText + ' at ' + s.timeText + ' (' + tzName + ')';
+      listContainer.appendChild(li);
+    });
+  }
 
-  document.getElementById('modal-overlay').style.display = 'flex';
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.style.display = 'flex';
 }
 
 function closeModal() {
-  document.getElementById('modal-overlay').style.display = 'none';
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 function buildMessageData() {
+  const NL = String.fromCharCode(10);
   const studentNameInput = document.getElementById('student-name');
-  const studentName = (studentNameInput && studentNameInput.value.trim()) || i18n.defaultStudentName;
+  const studentName = (studentNameInput && studentNameInput.value.trim()) || 'Student';
   const notesInput = document.getElementById('notes');
-  const notes = notesInput ? notesInput.value.trim() : '';
+  const notes = (notesInput && notesInput.value.trim()) || '';
   
   const selectedOptions = Array.from(document.querySelectorAll('input[name="class-option"]:checked'))
     .map(cb => cb.value);
 
   const tzSelect = document.getElementById('tz-select');
-  const tzName = tzSelect ? tzSelect.options[tzSelect.selectedIndex].text : '';
+  const tzName = (tzSelect && tzSelect.options[tzSelect.selectedIndex]) ? tzSelect.options[tzSelect.selectedIndex].text : '';
 
-  const timeList = selectedSlots.map(s => `• ${i18n.slotAt(s.dayText, s.timeText, tzName)}`).join('
-');
-  const subjectList = selectedOptions.length > 0 ? selectedOptions.join(', ') : i18n.defaultSubjectList;
+  const timeList = selectedSlots.map(s => '• ' + s.dayText + ' at ' + s.timeText + ' (' + tzName + ')').join(NL);
+  const subjectList = selectedOptions.length > 0 ? selectedOptions.join(', ') : 'Spanish Classes';
 
-  let message = `${i18n.greeting}
-
-${timeList}
-
-`;
-  message += `${i18n.classFocusLabel} ${subjectList}
-`;
-  message += `${i18n.studentNameLabel} ${studentName}
-`;
+  let message = 'Hi Yill, I would like to book these times for Spanish classes:' + NL + NL + timeList + NL + NL;
+  message += 'Class Focus: ' + subjectList + NL;
+  message += "Student's Name: " + studentName + NL;
   if (notes) {
-    message += `${i18n.notesLabel} ${notes}
-`;
+    message += 'Notes: ' + notes + NL;
   }
 
   return { message, studentName };
@@ -323,24 +344,29 @@ ${timeList}
 
 function sendViaWhatsApp() {
   if (selectedSlots.length === 0) return;
-  const { message } = buildMessageData();
+  const data = buildMessageData();
   const phoneNumber = '51952401591';
-  const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  const url = 'https://wa.me/' + phoneNumber + '?text=' + encodeURIComponent(data.message);
   window.open(url, '_blank');
 }
 
 function sendViaGmail() {
   if (selectedSlots.length === 0) return;
-  const { message, studentName } = buildMessageData();
+  const data = buildMessageData();
   const recipient = 'yill.salvatore@gmail.com';
-  const subject = i18n.gmailSubject(studentName);
+  const subject = 'Spanish Class Booking Request - ' + data.studentName;
   
-  const mailtoUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${recipient}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  const mailtoUrl = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + recipient + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(data.message);
   window.open(mailtoUrl, '_blank');
 }
 
-// Horizontal Scroll Sync & Init
-window.addEventListener('DOMContentLoaded', () => {
+function initCalendar() {
+  currentTz = detectInitialTimezone();
+  const tzSelect = document.getElementById('tz-select');
+  if (tzSelect) {
+    tzSelect.value = currentTz;
+  }
+
   const scrollArea = document.getElementById('scroll-area');
   const headerWrapper = document.getElementById('week-header-wrapper');
 
@@ -356,4 +382,17 @@ window.addEventListener('DOMContentLoaded', () => {
       scrollArea.scrollTop = 360;
     }
   }, 100);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCalendar);
+} else {
+  initCalendar();
+}
+window.addEventListener('load', () => {
+  renderCalendar();
+  const scrollArea = document.getElementById('scroll-area');
+  if (scrollArea && scrollArea.scrollTop === 0) {
+    scrollArea.scrollTop = 360;
+  }
 });
