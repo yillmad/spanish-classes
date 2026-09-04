@@ -58,6 +58,28 @@ header {
   gap: 10px;
 }
 
+.brand-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--google-subtext);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--google-border);
+  background: white;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+}
+
+.brand-home-link:hover {
+  color: var(--google-blue);
+  border-color: var(--google-blue);
+  background: #e8f0fe;
+}
+
 .brand-icon {
   width: 32px;
   height: 32px;
