@@ -1,37 +1,34 @@
-// Landing Page JavaScript - Spanish with Lentes
+// Landing Page JavaScript - Spanish with Yill (Lentes)
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Scroll Reveal Animation
+function initLanding() {
+    // Ensure all cards are visible immediately
     const cards = document.querySelectorAll('.card');
-
-    const revealCards = () => {
-        const triggerBottom = window.innerHeight * 0.85;
-
-        cards.forEach(card => {
-            const cardTop = card.getBoundingClientRect().top;
-            if (cardTop < triggerBottom) {
-                card.classList.add('visible');
-            }
-        });
-    };
-
-    window.addEventListener('scroll', revealCards);
-    revealCards();
+    cards.forEach(card => {
+        card.classList.add('visible');
+    });
 
     // Mobile Menu Toggle
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const navLinks = document.getElementById('navLinks');
 
     if (mobileMenuBtn && navLinks) {
-        mobileMenuBtn.addEventListener('click', () => {
+        mobileMenuBtn.onclick = () => {
             navLinks.classList.toggle('active');
-        });
+        };
 
         // Close mobile menu when a link is clicked
         document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
+            link.onclick = () => {
                 navLinks.classList.remove('active');
-            });
+            };
         });
     }
-});
+}
+
+// Support both early execution and standard load events
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLanding);
+} else {
+    initLanding();
+}
+window.addEventListener('load', initLanding);

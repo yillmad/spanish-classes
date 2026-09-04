@@ -193,8 +193,8 @@ header {
     padding: 2.2rem;
     margin-bottom: 2rem;
     box-shadow: var(--card-shadow);
-    opacity: 0;
-    transform: translateY(25px);
+    opacity: 1;
+    transform: none;
     transition: var(--transition);
     border: 1px solid #f0e6df;
 }
