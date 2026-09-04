@@ -28,6 +28,31 @@ const timezonePages = {
   'Europe/Rome': 'rome.html'
 };
 
+const autoTzMap = {
+  // Pacific
+  'America/Los_Angeles': 'America/Los_Angeles',
+  'America/Vancouver': 'America/Los_Angeles',
+  'America/Tijuana': 'America/Los_Angeles',
+  'PST8PDT': 'America/Los_Angeles',
+  // UK / Ireland
+  'Europe/London': 'Europe/London',
+  'Europe/Dublin': 'Europe/London',
+  'GB': 'Europe/London',
+  // Central / Western Europe
+  'Europe/Rome': 'Europe/Rome',
+  'Europe/Paris': 'Europe/Rome',
+  'Europe/Madrid': 'Europe/Rome',
+  'Europe/Berlin': 'Europe/Rome',
+  'Europe/Amsterdam': 'Europe/Rome',
+  'Europe/Brussels': 'Europe/Rome',
+  'Europe/Vienna': 'Europe/Rome',
+  'Europe/Zurich': 'Europe/Rome',
+  'Europe/Prague': 'Europe/Rome',
+  'Europe/Warsaw': 'Europe/Rome',
+  // Peru
+  'America/Lima': 'America/Lima'
+};
+
 const timezoneAliases = {
   'wa': 'America/Los_Angeles',
   'washington': 'America/Los_Angeles',
@@ -270,11 +295,13 @@ function changeTimezone(newTz, shouldRedirect) {
 }
 
 function detectInitialTimezone() {
+  // 1. Explicit data-tz attribute on html or body (used by dedicated pages)
   const docTz = document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz'));
   if (docTz && timezoneOffsets[docTz] !== undefined) {
     return docTz;
   }
 
+  // 2. Query parameter (?tz=wa, ?tz=london, ?tz=peru, ?tz=rome, etc.)
   try {
     const params = new URLSearchParams(window.location.search);
     const tzParam = params.get('tz');
@@ -285,6 +312,22 @@ function detectInitialTimezone() {
     }
   } catch (e) {}
 
+  // 3. Browser Timezone Auto-Detection Fallback
+  try {
+    if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) {
+        if (timezoneOffsets[detected] !== undefined) return detected;
+        if (autoTzMap[detected]) return autoTzMap[detected];
+        if (detected.includes('London') || detected.includes('Dublin')) return 'Europe/London';
+        if (detected.startsWith('Europe/')) return 'Europe/Rome';
+        if (detected.includes('Lima') || detected.includes('Bogota') || detected.includes('Quito')) return 'America/Lima';
+        if (detected.includes('Los_Angeles') || detected.includes('Vancouver') || detected.includes('Tijuana')) return 'America/Los_Angeles';
+      }
+    }
+  } catch (e) {}
+
+  // 4. Current dropdown value or default
   const tzSelect = document.getElementById('tz-select');
   if (tzSelect && tzSelect.value && timezoneOffsets[tzSelect.value] !== undefined) {
     return tzSelect.value;
