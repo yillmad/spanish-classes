@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Afiche Promocional - Spanish with Yill (LetsLerni)</title>
+    <title>Promotional Flyer - Spanish with Yill (LetsLerni)</title>
     
     <!-- Favicon & App Icons -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -20,9 +20,11 @@
     <style>
         :root {
             --brand-navy: #2d3e52;
+            --brand-navy-dark: #1e293b;
             --brand-teal: #13d4a5;
+            --brand-teal-hover: #0fb88f;
             --brand-blue: #1a73e8;
-            --brand-dark: #1f2a37;
+            --brand-dark: #0f172a;
             --brand-bg: #f4f7fa;
             --card-white: #ffffff;
             --text-dark: #1e293b;
@@ -85,7 +87,7 @@
         }
 
         .btn-action {
-            background: linear-gradient(135deg, var(--brand-teal), #0fb88f);
+            background: linear-gradient(135deg, var(--brand-teal), var(--brand-teal-hover));
             color: #0b2b22;
             border: none;
             padding: 9px 18px;
@@ -117,17 +119,25 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        /* FLYER POSTER CONTAINER (High-resolution 4:5 Aspect Ratio) */
-        .flyer-container {
+        /* FLYER POSTER CONTAINER (Locked proportions to prevent squishing) */
+        .flyer-wrapper {
             width: 100%;
-            max-width: 680px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .flyer-container {
+            width: 680px;
+            max-width: 100%;
             background: #ffffff;
             border-radius: 28px;
             overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
             position: relative;
             display: flex;
             flex-direction: column;
+            /* Ensures aspect ratios inside are strictly preserved */
+            contain: paint;
         }
 
         /* Top Header Strip */
@@ -149,8 +159,9 @@
 
         .flyer-brand img {
             height: 38px;
-            width: auto;
+            width: 95px;
             object-fit: contain;
+            display: block;
         }
 
         .flyer-brand-divider {
@@ -182,7 +193,7 @@
             background: rgba(19, 212, 165, 0.18);
             border: 1px solid var(--brand-teal);
             color: var(--brand-teal);
-            padding: 5px 12px;
+            padding: 6px 14px;
             border-radius: 30px;
             font-size: 0.76rem;
             font-weight: 700;
@@ -190,6 +201,7 @@
             align-items: center;
             gap: 6px;
             letter-spacing: 0.3px;
+            white-space: nowrap;
         }
 
         .flyer-pill-live i {
@@ -219,14 +231,16 @@
             padding: 5px;
             background: linear-gradient(135deg, var(--brand-teal), var(--brand-blue));
             box-shadow: 0 12px 30px rgba(26, 115, 232, 0.25);
+            flex-shrink: 0;
         }
 
+        /* 1:1 Aspect ratio guaranteed with profile-square.jpg */
         .avatar-img {
-            width: 100%;
-            height: 100%;
+            width: 160px;
+            height: 160px;
             border-radius: 50%;
+            aspect-ratio: 1 / 1;
             object-fit: cover;
-            object-position: center 20%;
             background: #ffffff;
             border: 3px solid #ffffff;
             display: block;
@@ -252,7 +266,7 @@
         .flyer-hero h1 {
             font-size: 1.95rem;
             font-weight: 800;
-            color: var(--brand-dark);
+            color: var(--brand-navy-dark);
             letter-spacing: -0.5px;
             line-height: 1.2;
             margin-bottom: 6px;
@@ -283,14 +297,15 @@
             background: #ffffff;
             border: 1px solid #e2e8f0;
             color: var(--brand-navy);
-            padding: 5px 12px;
+            padding: 6px 13px;
             border-radius: 20px;
             font-size: 0.78rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            white-space: nowrap;
         }
 
         .f-tag i {
@@ -319,8 +334,8 @@
         }
 
         .feat-icon {
-            width: 44px;
-            height: 44px;
+            width: 46px;
+            height: 46px;
             border-radius: 12px;
             background: rgba(26, 115, 232, 0.1);
             color: var(--brand-blue);
@@ -329,6 +344,7 @@
             justify-content: center;
             font-size: 1.25rem;
             margin-bottom: 10px;
+            flex-shrink: 0;
         }
 
         .feat-icon.green {
@@ -344,14 +360,15 @@
         .feat-card h3 {
             font-size: 0.88rem;
             font-weight: 700;
-            color: var(--brand-dark);
-            margin-bottom: 4px;
+            color: var(--brand-navy-dark);
+            margin-bottom: 5px;
+            line-height: 1.25;
         }
 
         .feat-card p {
             font-size: 0.74rem;
             color: var(--text-muted);
-            line-height: 1.35;
+            line-height: 1.38;
         }
 
         /* Call to Action & QR Code Section */
@@ -368,6 +385,7 @@
 
         .cta-content {
             flex: 1;
+            text-align: left;
         }
 
         .cta-label {
@@ -402,11 +420,11 @@
         .cta-buttons {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 9px;
         }
 
         .btn-hyperlink {
-            background: linear-gradient(135deg, var(--brand-teal), #0eb38b);
+            background: linear-gradient(135deg, var(--brand-teal), var(--brand-teal-hover));
             color: #09261e !important;
             text-decoration: none;
             padding: 10px 18px;
@@ -419,6 +437,7 @@
             gap: 8px;
             box-shadow: 0 4px 14px rgba(19, 212, 165, 0.35);
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         .btn-hyperlink:hover {
@@ -441,6 +460,7 @@
             justify-content: center;
             gap: 8px;
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         .btn-wa-link:hover {
@@ -449,7 +469,7 @@
             transform: translateY(-2px);
         }
 
-        /* QR Code Block */
+        /* QR Code Block (Guaranteed 1:1 Aspect Ratio) */
         .qr-box {
             background: #ffffff;
             padding: 12px;
@@ -466,6 +486,7 @@
         .qr-box img {
             width: 116px;
             height: 116px;
+            aspect-ratio: 1 / 1;
             display: block;
             border-radius: 8px;
             margin-bottom: 6px;
@@ -538,33 +559,8 @@
             }
             .flyer-container {
                 box-shadow: none;
-                max-width: 100%;
+                width: 100%;
                 border-radius: 0;
-            }
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 600px) {
-            .flyer-features {
-                grid-template-columns: 1fr;
-            }
-            .flyer-cta-section {
-                flex-direction: column;
-                text-align: center;
-            }
-            .cta-buttons {
-                width: 100%;
-            }
-            .btn-hyperlink, .btn-wa-link {
-                width: 100%;
-            }
-            .flyer-header {
-                flex-direction: column;
-                gap: 12px;
-                text-align: center;
-            }
-            .flyer-brand-divider {
-                display: none;
             }
         }
     </style>
@@ -574,162 +570,198 @@
     <!-- CONTROL BAR FOR DOWNLOADING & SHARING -->
     <div class="action-bar">
         <div class="action-bar-title">
-            <i class="fas fa-magic"></i> <span>Afiche Promocional Listo</span>
+            <i class="fas fa-bullhorn"></i> <span>Student Referral Flyer Ready</span>
         </div>
         <div class="btn-group">
             <button class="btn-action" onclick="downloadFlyerPNG()" id="downloadBtn">
-                <i class="fas fa-camera"></i> Descargar Imagen PNG
+                <i class="fas fa-camera"></i> Download PNG Image
             </button>
             <button class="btn-action btn-secondary" onclick="window.print()">
-                <i class="fas fa-print"></i> PDF / Imprimir
+                <i class="fas fa-print"></i> PDF / Print
             </button>
             <button class="btn-action btn-secondary" onclick="copyShareLink()">
-                <i class="fas fa-link"></i> Copiar Enlace
+                <i class="fas fa-link"></i> Copy Link
             </button>
         </div>
     </div>
 
-    <!-- FLYER POSTER (Rendered and Exported as Image) -->
-    <div class="flyer-container" id="flyer-card">
-        
-        <!-- Header with Official LetsLerni Branding -->
-        <header class="flyer-header">
-            <div class="flyer-brand">
-                <img src="images/logo-white.png" alt="LetsLerni" onerror="this.src='logo letslerni/PNG/Logo 1.png'">
-                <div class="flyer-brand-divider"></div>
-                <div class="flyer-brand-text">
-                    <span class="flyer-brand-title">Spanish with Yill</span>
-                    <span class="flyer-brand-sub">Independent Teacher &amp; Tutor (Lentes)</span>
+    <!-- FLYER POSTER WRAPPER -->
+    <div class="flyer-wrapper">
+        <div class="flyer-container" id="flyer-card">
+            
+            <!-- Header with Official LetsLerni Branding -->
+            <header class="flyer-header">
+                <div class="flyer-brand">
+                    <img src="images/logo-white.png" alt="LetsLerni" onerror="this.src='logo letslerni/PNG/Logo 1.png'">
+                    <div class="flyer-brand-divider"></div>
+                    <div class="flyer-brand-text">
+                        <span class="flyer-brand-title">Spanish with Yill</span>
+                        <span class="flyer-brand-sub">Independent Teacher &amp; Tutor (Lentes)</span>
+                    </div>
                 </div>
-            </div>
-            <div class="flyer-pill-live">
-                <i class="fas fa-circle"></i> Clases Abiertas 2026
-            </div>
-        </header>
-
-        <!-- Hero Section with Yill's Photo -->
-        <section class="flyer-hero">
-            <div class="avatar-wrapper">
-                <img src="profile.jpg" alt="Yill - Spanish Teacher &amp; Tutor" class="avatar-img">
-                <div class="avatar-badge" title="Tutor Nativo Verificado">
-                    <i class="fas fa-check"></i>
+                <div class="flyer-pill-live">
+                    <i class="fas fa-circle"></i> Accepting Students 2026
                 </div>
-            </div>
+            </header>
 
-            <h1>¡Habla Español con <span>Confianza</span>!</h1>
-            <p class="hero-tagline">
-                Clases particulares 1-on-1 vía Zoom 100% personalizadas según tu nivel, ritmo y metas personales o académicas.
-            </p>
-
-            <div class="flyer-tags">
-                <span class="f-tag"><i class="fas fa-video"></i> 100% Online Zoom</span>
-                <span class="f-tag"><i class="fas fa-globe-americas"></i> Acento Nativo</span>
-                <span class="f-tag"><i class="fas fa-user-friends"></i> Todos los Niveles</span>
-                <span class="f-tag"><i class="fas fa-clock"></i> Horarios Flexibles</span>
-            </div>
-        </section>
-
-        <!-- What We Learn / Features (3 Columns) -->
-        <section class="flyer-features">
-            <div class="feat-card">
-                <div class="feat-icon">
-                    <i class="fas fa-comments"></i>
+            <!-- Hero Section with Yill's Photo (Using 1:1 square crop to eliminate squishing) -->
+            <section class="flyer-hero">
+                <div class="avatar-wrapper">
+                    <img src="profile-square.jpg" alt="Yill - Spanish Teacher &amp; Tutor" class="avatar-img" onerror="this.src='profile.jpg'">
+                    <div class="avatar-badge" title="Verified Native Tutor">
+                        <i class="fas fa-check"></i>
+                    </div>
                 </div>
-                <h3>Conversación Real</h3>
-                <p>Fluidez práctica, pronunciación auténtica y vocabulario útil para viajes, trabajo o inmersión cultural.</p>
-            </div>
 
-            <div class="feat-card">
-                <div class="feat-icon green">
-                    <i class="fas fa-graduation-cap"></i>
-                </div>
-                <h3>Prep. Exámenes Oficiales</h3>
-                <p>Estrategias y simulacros para AP Spanish Language/Literature, DELE (A1-C2) y STAMP Test.</p>
-            </div>
-
-            <div class="feat-card">
-                <div class="feat-icon purple">
-                    <i class="fas fa-book-reader"></i>
-                </div>
-                <h3>Apoyo Académico</h3>
-                <p>Tutoría escolar (Middle/High School), gramática clara, tareas y español profesional para carreras.</p>
-            </div>
-        </section>
-
-        <!-- Call to Action, Live Calendar Hyperlink & QR Code -->
-        <section class="flyer-cta-section">
-            <div class="cta-content">
-                <span class="cta-label">Reserva Directa</span>
-                <h2>Agenda tu Clase en Vivo</h2>
-                <p>
-                    Revisa disponibilidad en tiempo real adaptada a tu zona horaria (EE.UU., Reino Unido, Europa o Perú).
+                <h1>Speak Spanish with <span>Confidence</span>!</h1>
+                <p class="hero-tagline">
+                    Personalized 1-on-1 online lessons via Zoom tailored to your exact level, goals, and personal or academic pace.
                 </p>
-                <div class="cta-buttons">
-                    <a href="https://yillmad.github.io/spanish-classes/" target="_blank" class="btn-hyperlink">
-                        <i class="fas fa-calendar-alt"></i> Ver Calendario y Reservar
-                    </a>
-                    <a href="https://wa.me/51952401591?text=%C2%A1Hola%20Yill!%20Vi%20tu%20afiche%20y%20me%20gustar%C3%ADa%20informaci%C3%B3n%20sobre%20tus%20clases%20de%20espa%C3%B1ol." target="_blank" class="btn-wa-link">
-                        <i class="fab fa-whatsapp"></i> WhatsApp: +51 952 401 591
-                    </a>
+
+                <div class="flyer-tags">
+                    <span class="f-tag"><i class="fas fa-video"></i> 100% Online via Zoom</span>
+                    <span class="f-tag"><i class="fas fa-globe-americas"></i> Native Accent</span>
+                    <span class="f-tag"><i class="fas fa-user-friends"></i> All Levels &amp; Ages</span>
+                    <span class="f-tag"><i class="fas fa-clock"></i> Flexible Time Zones</span>
                 </div>
-            </div>
+            </section>
 
-            <!-- Scannable QR Code -->
-            <div class="qr-box">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https%3A%2F%2Fyillmad.github.io%2Fspanish-classes%2F&color=29-38-51&bgcolor=ffffff" alt="Escanear Código QR para reservar">
-                <span>Escanear QR para ver Horarios</span>
-            </div>
-        </section>
+            <!-- What We Learn / Features (3 Columns) -->
+            <section class="flyer-features">
+                <div class="feat-card">
+                    <div class="feat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3>Conversational Fluency</h3>
+                    <p>Natural speaking confidence, authentic pronunciation, and practical vocabulary for travel, work, or daily life.</p>
+                </div>
 
-        <!-- Footer Strip -->
-        <footer class="flyer-footer">
-            <div>
-                <strong>¿Recomendado por un estudiante?</strong> Pregunta por tu sesión de prueba.
-            </div>
-            <div>
-                Web: <a href="https://yillmad.github.io/spanish-classes/" target="_blank">yillmad.github.io/spanish-classes</a>
-            </div>
-        </footer>
+                <div class="feat-card">
+                    <div class="feat-icon green">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h3>Official Exam Prep</h3>
+                    <p>Proven scoring rubrics &amp; simulations for AP Spanish Language/Literature, DELE (A1-C2), and STAMP Test.</p>
+                </div>
 
+                <div class="feat-card">
+                    <div class="feat-icon purple">
+                        <i class="fas fa-book-reader"></i>
+                    </div>
+                    <h3>Academic Support</h3>
+                    <p>Middle/high school &amp; university courses, grammar clarity, homework help, and specialized career Spanish.</p>
+                </div>
+            </section>
+
+            <!-- Call to Action, Live Calendar Hyperlink & QR Code -->
+            <section class="flyer-cta-section">
+                <div class="cta-content">
+                    <span class="cta-label">Direct Online Booking</span>
+                    <h2>Book Your Live Session</h2>
+                    <p>
+                        Check real-time availability pre-adjusted to your local time zone (US PT, UK, Europe CET, or Peru).
+                    </p>
+                    <div class="cta-buttons">
+                        <a href="https://yillmad.github.io/spanish-classes/" target="_blank" class="btn-hyperlink">
+                            <i class="fas fa-calendar-alt"></i> View Live Schedule &amp; Book
+                        </a>
+                        <a href="https://wa.me/51952401591?text=Hi%20Yill!%20I%20saw%20your%20flyer%20and%20would%20love%20more%20information%20about%20your%20Spanish%20classes." target="_blank" class="btn-wa-link">
+                            <i class="fab fa-whatsapp"></i> WhatsApp: +51 952 401 591
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Scannable QR Code -->
+                <div class="qr-box">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https%3A%2F%2Fyillmad.github.io%2Fspanish-classes%2F&color=29-38-51&bgcolor=ffffff" alt="Scan QR Code to book">
+                    <span>Scan QR Code to Book Online</span>
+                </div>
+            </section>
+
+            <!-- Footer Strip -->
+            <footer class="flyer-footer">
+                <div>
+                    <strong>Referred by a current student?</strong> Ask about your trial session!
+                </div>
+                <div>
+                    Web: <a href="https://yillmad.github.io/spanish-classes/" target="_blank">yillmad.github.io/spanish-classes</a>
+                </div>
+            </footer>
+
+        </div>
     </div>
 
     <!-- Notification Toast -->
     <div class="toast" id="toast">
-        <i class="fas fa-check-circle"></i> ¡Enlace copiado al portapapeles!
+        <i class="fas fa-check-circle"></i> Link copied to clipboard!
     </div>
 
-    <!-- JavaScript to Export Image and Copy Link -->
+    <!-- Robust, Anti-Squish Export Engine -->
     <script>
         function downloadFlyerPNG() {
             const btn = document.getElementById('downloadBtn');
             const flyer = document.getElementById('flyer-card');
             
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando imagen...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating high-res image...';
             btn.disabled = true;
 
-            // Use html2canvas with scale 2 for crystal-clear retina image
-            html2canvas(flyer, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: null,
-                logging: false
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'afiche-clases-espanol-yill.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+            // 1. Save scroll position and reset to top to prevent html2canvas offset distortion
+            const prevScrollY = window.scrollY;
+            window.scrollTo(0, 0);
 
-                btn.innerHTML = '<i class="fas fa-check"></i> ¡Imagen Descargada!';
-                setTimeout(() => {
-                    btn.innerHTML = '<i class="fas fa-camera"></i> Descargar Imagen PNG';
+            // 2. Lock flyer element width to exactly 680px during render
+            const originalWidth = flyer.style.width;
+            const originalMinWidth = flyer.style.minWidth;
+            const originalMaxWidth = flyer.style.maxWidth;
+
+            flyer.style.width = '680px';
+            flyer.style.minWidth = '680px';
+            flyer.style.maxWidth = '680px';
+
+            // Allow DOM to apply exact width before capture
+            setTimeout(() => {
+                const renderWidth = 680;
+                const renderHeight = flyer.offsetHeight;
+
+                html2canvas(flyer, {
+                    scale: 2, // Ultra-sharp 2x retina output (1360px wide)
+                    width: renderWidth,
+                    height: renderHeight,
+                    windowWidth: 1280, // Forces full desktop layout in canvas sandbox
+                    windowHeight: 2000,
+                    scrollX: 0,
+                    scrollY: 0,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                }).then(canvas => {
+                    // Restore original responsive styles
+                    flyer.style.width = originalWidth;
+                    flyer.style.minWidth = originalMinWidth;
+                    flyer.style.maxWidth = originalMaxWidth;
+                    window.scrollTo(0, prevScrollY);
+
+                    // Trigger automatic PNG download
+                    const link = document.createElement('a');
+                    link.download = 'spanish-with-yill-flyer.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+
+                    btn.innerHTML = '<i class="fas fa-check"></i> Image Downloaded!';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="fas fa-camera"></i> Download PNG Image';
+                        btn.disabled = false;
+                    }, 2500);
+                }).catch(err => {
+                    console.error('Error exporting flyer image:', err);
+                    flyer.style.width = originalWidth;
+                    flyer.style.minWidth = originalMinWidth;
+                    flyer.style.maxWidth = originalMaxWidth;
+                    window.scrollTo(0, prevScrollY);
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error generating';
                     btn.disabled = false;
-                }, 2500);
-            }).catch(err => {
-                console.error(err);
-                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al generar';
-                btn.disabled = false;
-            });
+                });
+            }, 100);
         }
 
         function copyShareLink() {
@@ -740,6 +772,9 @@
                 setTimeout(() => {
                     toast.style.display = 'none';
                 }, 2500);
+            }).catch(() => {
+                // Fallback prompt if clipboard API is blocked
+                prompt("Copy this link to share:", url);
             });
         }
     </script>
