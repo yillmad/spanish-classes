@@ -10,6 +10,13 @@
     <meta property="og:title" content="Spanish with Yill (Lentes) | Online Spanish Teacher & Tutor">
     <meta property="og:description" content="Personalized 1-on-1 online Spanish lessons. Check my live calendar and book your session easily.">
     <meta property="og:type" content="website">
+    <meta property="og:image" content="profile.jpg">
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="shortcut icon" href="favicon.ico">
 
     <!-- Fonts & Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -20,8 +27,12 @@
     <!-- Navigation Header -->
     <header>
         <div class="nav-container">
-            <a href="index.html" class="logo">
-                <i class="fas fa-glasses"></i> Spanish with Yill <span style="font-weight: 400; font-size: 0.95rem; opacity: 0.85;">(Teacher & Tutor)</span>
+            <a href="index.html" class="logo" title="LetsLerni - Spanish with Yill">
+                <img src="images/logo-white.png" alt="LetsLerni" class="logo-img">
+                <div class="logo-text-group">
+                    <span class="logo-title">Spanish with Yill</span>
+                    <span class="logo-subtitle">Teacher &amp; Tutor</span>
+                </div>
             </a>
             <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle navigation">
                 <i class="fas fa-bars"></i>
@@ -42,10 +53,11 @@
     <section class="hero">
         <div class="hero-content">
             <div class="profile-avatar">
-                <i class="fas fa-chalkboard-teacher"></i>
+                <img src="profile.jpg" alt="Yill - Spanish Teacher & Tutor" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <i class="fas fa-chalkboard-teacher" style="display: none;"></i>
             </div>
             <h1>¡Hola! I'm Yill</h1>
-            <p class="subtitle">Independent Online Spanish Teacher & Tutor (Lentes)</p>
+            <p class="subtitle">Independent Online Spanish Teacher & Tutor</p>
             <div class="hero-tags">
                 <span class="tag"><i class="fas fa-video"></i> 1-on-1 Zoom Lessons</span>
                 <span class="tag"><i class="fas fa-globe-americas"></i> Native Accent</span>
@@ -123,7 +135,7 @@
                     </div>
                 </div>
             </div>
-        </section>
+        </section>  
 
         <!-- Compact Methodology Section (Saves Space) -->
         <section id="methodology" class="card methodology-compact-card">
@@ -150,7 +162,7 @@
                     <i class="fas fa-file-alt"></i>
                     <div>
                         <strong>Tailored Resources</strong>
-                        <p>Personalized worksheets, exam rubrics, audio guides, and notes after each session.</p>
+                        <p>Personalized worksheets, exam rubrics, audio guides, and study notes designed to support your individual learning goals.</p>
                     </div>
                 </div>
                 <div class="method-compact-item">
@@ -285,7 +297,10 @@
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 Spanish with Yill (Lentes). All rights reserved. | Private Online Language Tutoring</p>
+        <div class="footer-logo">
+            <img src="images/logo-white.png" alt="LetsLerni" style="height: 28px; opacity: 0.85; margin-bottom: 0.75rem;">
+        </div>
+        <p>&copy; 2026 Spanish with Yill (Lentes) &bull; LetsLerni. All rights reserved. | Private Online Language Tutoring</p>
     </footer>
 
     <!-- JavaScript -->

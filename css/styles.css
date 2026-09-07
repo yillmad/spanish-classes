@@ -93,6 +93,16 @@ header {
   font-size: 1rem;
 }
 
+.brand-icon-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
 .title-area h1 {
   font-size: 1rem;
   font-weight: 500;
