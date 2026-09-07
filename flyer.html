@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afiche Promocional - Spanish with Yill (LetsLerni)</title>
+    
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="shortcut icon" href="favicon.ico" />
+
+    <!-- Fonts & Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- html2canvas for 1-click PNG image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --brand-navy: #2d3e52;
+            --brand-teal: #13d4a5;
+            --brand-blue: #1a73e8;
+            --brand-dark: #1f2a37;
+            --brand-bg: #f4f7fa;
+            --card-white: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --whatsapp-green: #25d366;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 60px;
+        }
+
+        /* Top Action Bar for the Tutor/User */
+        .action-bar {
+            width: 100%;
+            max-width: 680px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 12px 20px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            gap: 12px;
+            flex-wrap: wrap;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .action-bar-title {
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-bar-title span {
+            color: var(--brand-teal);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: linear-gradient(135deg, var(--brand-teal), #0fb88f);
+            color: #0b2b22;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(19, 212, 165, 0.3);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(19, 212, 165, 0.45);
+        }
+
+        .btn-action.btn-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            box-shadow: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-action.btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* FLYER POSTER CONTAINER (High-resolution 4:5 Aspect Ratio) */
+        .flyer-container {
+            width: 100%;
+            max-width: 680px;
+            background: #ffffff;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header Strip */
+        .flyer-header {
+            background: linear-gradient(135deg, var(--brand-navy) 0%, #1e293b 100%);
+            padding: 24px 32px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #ffffff;
+            border-bottom: 4px solid var(--brand-teal);
+        }
+
+        .flyer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .flyer-brand img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .flyer-brand-divider {
+            width: 1px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .flyer-brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+        }
+
+        .flyer-brand-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+        }
+
+        .flyer-brand-sub {
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.75);
+            font-weight: 500;
+        }
+
+        .flyer-pill-live {
+            background: rgba(19, 212, 165, 0.18);
+            border: 1px solid var(--brand-teal);
+            color: var(--brand-teal);
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.3px;
+        }
+
+        .flyer-pill-live i {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        /* Hero / Teacher Profile Section */
+        .flyer-hero {
+            background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+            padding: 32px 32px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .avatar-wrapper {
+            position: relative;
+            width: 170px;
+            height: 170px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            padding: 5px;
+            background: linear-gradient(135deg, var(--brand-teal), var(--brand-blue));
+            box-shadow: 0 12px 30px rgba(26, 115, 232, 0.25);
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center 20%;
+            background: #ffffff;
+            border: 3px solid #ffffff;
+            display: block;
+        }
+
+        .avatar-badge {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: var(--brand-teal);
+            color: #0b2b22;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+        }
+
+        .flyer-hero h1 {
+            font-size: 1.95rem;
+            font-weight: 800;
+            color: var(--brand-dark);
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            margin-bottom: 6px;
+        }
+
+        .flyer-hero h1 span {
+            color: var(--brand-blue);
+        }
+
+        .flyer-hero p.hero-tagline {
+            font-size: 0.98rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            max-width: 520px;
+            margin: 0 auto 16px;
+            line-height: 1.45;
+        }
+
+        /* Tags Row */
+        .flyer-tags {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .f-tag {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: var(--brand-navy);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+
+        .f-tag i {
+            color: var(--brand-teal);
+        }
+
+        /* Features 3-Card Grid */
+        .flyer-features {
+            padding: 24px 32px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            background: #ffffff;
+        }
+
+        .feat-card {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px 14px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .feat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(26, 115, 232, 0.1);
+            color: var(--brand-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 10px;
+        }
+
+        .feat-icon.green {
+            background: rgba(19, 212, 165, 0.15);
+            color: #0d9674;
+        }
+
+        .feat-icon.purple {
+            background: rgba(124, 58, 237, 0.1);
+            color: #7c3aed;
+        }
+
+        .feat-card h3 {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--brand-dark);
+            margin-bottom: 4px;
+        }
+
+        .feat-card p {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        /* Call to Action & QR Code Section */
+        .flyer-cta-section {
+            background: linear-gradient(135deg, #1e293b 0%, var(--brand-navy) 100%);
+            color: #ffffff;
+            padding: 28px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            position: relative;
+        }
+
+        .cta-content {
+            flex: 1;
+        }
+
+        .cta-label {
+            display: inline-block;
+            background: rgba(19, 212, 165, 0.2);
+            color: var(--brand-teal);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+        }
+
+        .cta-content h2 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 6px;
+            line-height: 1.25;
+        }
+
+        .cta-content p {
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        /* Interactive Clickable Hyperlink Buttons */
+        .cta-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn-hyperlink {
+            background: linear-gradient(135deg, var(--brand-teal), #0eb38b);
+            color: #09261e !important;
+            text-decoration: none;
+            padding: 10px 18px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(19, 212, 165, 0.35);
+            transition: all 0.2s ease;
+        }
+
+        .btn-hyperlink:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(19, 212, 165, 0.5);
+            background: linear-gradient(135deg, #17e2b1, #10c69a);
+        }
+
+        .btn-wa-link {
+            background: rgba(37, 211, 102, 0.18);
+            border: 1.5px solid var(--whatsapp-green);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 25px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-wa-link:hover {
+            background: var(--whatsapp-green);
+            color: #063413 !important;
+            transform: translateY(-2px);
+        }
+
+        /* QR Code Block */
+        .qr-box {
+            background: #ffffff;
+            padding: 12px;
+            border-radius: 18px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        .qr-box img {
+            width: 116px;
+            height: 116px;
+            display: block;
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+
+        .qr-box span {
+            color: var(--brand-dark);
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* Footer Banner */
+        .flyer-footer {
+            background: #0f172a;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #94a3b8;
+            font-size: 0.74rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .flyer-footer strong {
+            color: #ffffff;
+        }
+
+        .flyer-footer a {
+            color: var(--brand-teal);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Notification Toast for Copy */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            background: #10b981;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .action-bar {
+                display: none;
+            }
+            .flyer-container {
+                box-shadow: none;
+                max-width: 100%;
+                border-radius: 0;
+            }
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .flyer-features {
+                grid-template-columns: 1fr;
+            }
+            .flyer-cta-section {
+                flex-direction: column;
+                text-align: center;
+            }
+            .cta-buttons {
+                width: 100%;
+            }
+            .btn-hyperlink, .btn-wa-link {
+                width: 100%;
+            }
+            .flyer-header {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+            .flyer-brand-divider {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CONTROL BAR FOR DOWNLOADING & SHARING -->
+    <div class="action-bar">
+        <div class="action-bar-title">
+            <i class="fas fa-magic"></i> <span>Afiche Promocional Listo</span>
+        </div>
+        <div class="btn-group">
+            <button class="btn-action" onclick="downloadFlyerPNG()" id="downloadBtn">
+                <i class="fas fa-camera"></i> Descargar Imagen PNG
+            </button>
+            <button class="btn-action btn-secondary" onclick="window.print()">
+                <i class="fas fa-print"></i> PDF / Imprimir
+            </button>
+            <button class="btn-action btn-secondary" onclick="copyShareLink()">
+                <i class="fas fa-link"></i> Copiar Enlace
+            </button>
+        </div>
+    </div>
+
+    <!-- FLYER POSTER (Rendered and Exported as Image) -->
+    <div class="flyer-container" id="flyer-card">
+        
+        <!-- Header with Official LetsLerni Branding -->
+        <header class="flyer-header">
+            <div class="flyer-brand">
+                <img src="images/logo-white.png" alt="LetsLerni" onerror="this.src='logo letslerni/PNG/Logo 1.png'">
+                <div class="flyer-brand-divider"></div>
+                <div class="flyer-brand-text">
+                    <span class="flyer-brand-title">Spanish with Yill</span>
+                    <span class="flyer-brand-sub">Independent Teacher &amp; Tutor (Lentes)</span>
+                </div>
+            </div>
+            <div class="flyer-pill-live">
+                <i class="fas fa-circle"></i> Clases Abiertas 2026
+            </div>
+        </header>
+
+        <!-- Hero Section with Yill's Photo -->
+        <section class="flyer-hero">
+            <div class="avatar-wrapper">
+                <img src="profile.jpg" alt="Yill - Spanish Teacher &amp; Tutor" class="avatar-img">
+                <div class="avatar-badge" title="Tutor Nativo Verificado">
+                    <i class="fas fa-check"></i>
+                </div>
+            </div>
+
+            <h1>¡Habla Español con <span>Confianza</span>!</h1>
+            <p class="hero-tagline">
+                Clases particulares 1-on-1 vía Zoom 100% personalizadas según tu nivel, ritmo y metas personales o académicas.
+            </p>
+
+            <div class="flyer-tags">
+                <span class="f-tag"><i class="fas fa-video"></i> 100% Online Zoom</span>
+                <span class="f-tag"><i class="fas fa-globe-americas"></i> Acento Nativo</span>
+                <span class="f-tag"><i class="fas fa-user-friends"></i> Todos los Niveles</span>
+                <span class="f-tag"><i class="fas fa-clock"></i> Horarios Flexibles</span>
+            </div>
+        </section>
+
+        <!-- What We Learn / Features (3 Columns) -->
+        <section class="flyer-features">
+            <div class="feat-card">
+                <div class="feat-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3>Conversación Real</h3>
+                <p>Fluidez práctica, pronunciación auténtica y vocabulario útil para viajes, trabajo o inmersión cultural.</p>
+            </div>
+
+            <div class="feat-card">
+                <div class="feat-icon green">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h3>Prep. Exámenes Oficiales</h3>
+                <p>Estrategias y simulacros para AP Spanish Language/Literature, DELE (A1-C2) y STAMP Test.</p>
+            </div>
+
+            <div class="feat-card">
+                <div class="feat-icon purple">
+                    <i class="fas fa-book-reader"></i>
+                </div>
+                <h3>Apoyo Académico</h3>
+                <p>Tutoría escolar (Middle/High School), gramática clara, tareas y español profesional para carreras.</p>
+            </div>
+        </section>
+
+        <!-- Call to Action, Live Calendar Hyperlink & QR Code -->
+        <section class="flyer-cta-section">
+            <div class="cta-content">
+                <span class="cta-label">Reserva Directa</span>
+                <h2>Agenda tu Clase en Vivo</h2>
+                <p>
+                    Revisa disponibilidad en tiempo real adaptada a tu zona horaria (EE.UU., Reino Unido, Europa o Perú).
+                </p>
+                <div class="cta-buttons">
+                    <a href="https://yillmad.github.io/spanish-classes/" target="_blank" class="btn-hyperlink">
+                        <i class="fas fa-calendar-alt"></i> Ver Calendario y Reservar
+                    </a>
+                    <a href="https://wa.me/51952401591?text=%C2%A1Hola%20Yill!%20Vi%20tu%20afiche%20y%20me%20gustar%C3%ADa%20informaci%C3%B3n%20sobre%20tus%20clases%20de%20espa%C3%B1ol." target="_blank" class="btn-wa-link">
+                        <i class="fab fa-whatsapp"></i> WhatsApp: +51 952 401 591
+                    </a>
+                </div>
+            </div>
+
+            <!-- Scannable QR Code -->
+            <div class="qr-box">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https%3A%2F%2Fyillmad.github.io%2Fspanish-classes%2F&color=29-38-51&bgcolor=ffffff" alt="Escanear Código QR para reservar">
+                <span>Escanear QR para ver Horarios</span>
+            </div>
+        </section>
+
+        <!-- Footer Strip -->
+        <footer class="flyer-footer">
+            <div>
+                <strong>¿Recomendado por un estudiante?</strong> Pregunta por tu sesión de prueba.
+            </div>
+            <div>
+                Web: <a href="https://yillmad.github.io/spanish-classes/" target="_blank">yillmad.github.io/spanish-classes</a>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i> ¡Enlace copiado al portapapeles!
+    </div>
+
+    <!-- JavaScript to Export Image and Copy Link -->
+    <script>
+        function downloadFlyerPNG() {
+            const btn = document.getElementById('downloadBtn');
+            const flyer = document.getElementById('flyer-card');
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando imagen...';
+            btn.disabled = true;
+
+            // Use html2canvas with scale 2 for crystal-clear retina image
+            html2canvas(flyer, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: null,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'afiche-clases-espanol-yill.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                btn.innerHTML = '<i class="fas fa-check"></i> ¡Imagen Descargada!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-camera"></i> Descargar Imagen PNG';
+                    btn.disabled = false;
+                }, 2500);
+            }).catch(err => {
+                console.error(err);
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al generar';
+                btn.disabled = false;
+            });
+        }
+
+        function copyShareLink() {
+            const url = "https://yillmad.github.io/spanish-classes/";
+            navigator.clipboard.writeText(url).then(() => {
+                const toast = document.getElementById('toast');
+                toast.style.display = 'flex';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 2500);
+            });
+        }
+    </script>
+</body>
+</html>
