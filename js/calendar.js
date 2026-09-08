@@ -3,13 +3,13 @@
  */
 
 const weekDays = [
-  { name: 'lun', date: 20, full: 'Monday 20' },
-  { name: 'mar', date: 21, full: 'Tuesday 21' },
-  { name: 'mié', date: 22, full: 'Wednesday 22', isToday: true },
-  { name: 'jue', date: 23, full: 'Thursday 23' },
-  { name: 'vie', date: 24, full: 'Friday 24' },
-  { name: 'sáb', date: 25, full: 'Saturday 25' },
-  { name: 'dom', date: 26, full: 'Sunday 26' }
+  { name: 'Mon', date: 7, full: 'Monday 7' },
+  { name: 'Tue', date: 8, full: 'Tuesday 8', isToday: true },
+  { name: 'Wed', date: 9, full: 'Wednesday 9' },
+  { name: 'Thu', date: 10, full: 'Thursday 10' },
+  { name: 'Fri', date: 11, full: 'Friday 11' },
+  { name: 'Sat', date: 12, full: 'Saturday 12' },
+  { name: 'Sun', date: 13, full: 'Sunday 13' }
 ];
 
 const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
@@ -76,27 +76,27 @@ const timezoneAliases = {
 
 let currentTz = 'America/Los_Angeles';
 
-// 30-MINUTE SLOTS (WA TIME)
+// 30-MINUTE SLOTS (WA TIME) - Calculated from Google Calendar Free Windows
 const baseAvailableSlots = [
-  // Lunes (idx 0)
-  { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 17.0, 17.5, 18.0, 18.5, 20.0, 20.5, 21.0, 21.5] },
+  // Monday (idx 0) - Classes: Suzie, Lena, Alex, Daniel, Adam (15.0 - 20.0 PT)
+  { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Martes (idx 1)
-  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.0, 18.5, 19.0, 20.5, 21.0, 21.5] },
+  // Tuesday (idx 1) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Lucas & Aleister (19.5-20.5 PT)
+  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.0, 18.5, 19.0, 20.5, 21.0, 21.5] },
 
-  // Miércoles (idx 2)
-  { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 14.0, 14.5, 15.0, 15.5, 17.0, 17.5, 18.0, 20.5, 21.0, 21.5] },
+  // Wednesday (idx 2) - Classes: Suzie, Benjamin, Belma, Lena, Ruzgar (13.0-18.0 PT), Adam, Wesley & KC (18.5-20.5 PT)
+  { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 18.0, 20.5, 21.0, 21.5] },
 
-  // Jueves (idx 3)
-  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Thursday (idx 3) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Oliver (18.0-19.0 PT)
+  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Viernes (idx 4)
+  // Friday (idx 4) - Classes: Suzie, Lena (15.0-17.0 PT)
   { dayIdx: 4, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Sábado (idx 5)
-  { dayIdx: 5, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 9.5, 10.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Saturday (idx 5) - Classes: Macie-Brielle, Caiah, Adriel, Aleister Lucas Eva, OB, Iana (7.0-11.25 PT)
+  { dayIdx: 5, hours: [6.0, 6.5, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Domingo (idx 6)
+  // Sunday (idx 6) - Off / Church
   { dayIdx: 6, hours: [] }
 ];
 
