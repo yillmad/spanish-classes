@@ -2,15 +2,98 @@
  * Spanish Classes with Yill - Calendar & Availability Logic
  */
 
-const weekDays = [
-  { name: 'Mon', date: 7, full: 'Monday 7' },
-  { name: 'Tue', date: 8, full: 'Tuesday 8', isToday: true },
-  { name: 'Wed', date: 9, full: 'Wednesday 9' },
-  { name: 'Thu', date: 10, full: 'Thursday 10' },
-  { name: 'Fri', date: 11, full: 'Friday 11' },
-  { name: 'Sat', date: 12, full: 'Saturday 12' },
-  { name: 'Sun', date: 13, full: 'Sunday 13' }
-];
+let weekDays = [];
+
+function updateWeekDays(tz) {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'short',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const map = {};
+    parts.forEach(p => { map[p.type] = p.value; });
+
+    const dayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+    const currentDayIdx = dayMap[map.weekday] !== undefined ? dayMap[map.weekday] : 0;
+    const year = parseInt(map.year, 10);
+    const month = parseInt(map.month, 10);
+    const day = parseInt(map.day, 10);
+
+    const dayShortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const diff = i - currentDayIdx;
+      const d = new Date(year, month - 1, day + diff);
+      const dateNum = d.getDate();
+      weekDays.push({
+        name: dayShortNames[i],
+        date: dateNum,
+        full: dayFullNames[i] + ' ' + dateNum,
+        isToday: (i === currentDayIdx)
+      });
+    }
+  } catch (e) {
+    weekDays = [
+      { name: 'Mon', date: 7, full: 'Monday 7', isToday: false },
+      { name: 'Tue', date: 8, full: 'Tuesday 8', isToday: false },
+      { name: 'Wed', date: 9, full: 'Wednesday 9', isToday: false },
+      { name: 'Thu', date: 10, full: 'Thursday 10', isToday: true },
+      { name: 'Fri', date: 11, full: 'Friday 11', isToday: false },
+      { name: 'Sat', date: 12, full: 'Saturday 12', isToday: false },
+      { name: 'Sun', date: 13, full: 'Sunday 13', isToday: false }
+    ];
+  }
+}
+
+function getCurrentTimeInfo(tz) {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'short',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const map = {};
+    parts.forEach(p => { map[p.type] = p.value; });
+
+    let h = parseInt(map.hour, 10) || 0;
+    if (h === 24) h = 0;
+    const m = parseInt(map.minute, 10) || 0;
+    const s = parseInt(map.second, 10) || 0;
+    const floatHour = h + m / 60 + s / 3600;
+
+    return {
+      floatHour: floatHour,
+      topPx: floatHour * 60,
+      h: h,
+      m: m
+    };
+  } catch (e) {
+    const d = new Date();
+    const floatHour = d.getHours() + d.getMinutes() / 60;
+    return {
+      floatHour: floatHour,
+      topPx: floatHour * 60,
+      h: d.getHours(),
+      m: d.getMinutes()
+    };
+  }
+}
 
 const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
 
@@ -75,6 +158,9 @@ const timezoneAliases = {
 };
 
 let currentTz = 'America/Los_Angeles';
+
+// Initialize week days
+updateWeekDays(currentTz);
 
 // 30-MINUTE SLOTS (WA TIME) - Calculated from Google Calendar Free Windows
 const baseAvailableSlots = [
@@ -157,6 +243,10 @@ function formatTimeLabel(floatHour24) {
 }
 
 function renderCalendar() {
+  // 0. Update week days and current time dynamically for the selected timezone
+  updateWeekDays(currentTz);
+  const currentTimeInfo = getCurrentTimeInfo(currentTz);
+
   // 1. Render Header
   const headerContainer = document.getElementById('week-header');
   if (headerContainer) {
@@ -199,7 +289,9 @@ function renderCalendar() {
     if (day.isToday) {
       const timeLine = document.createElement('div');
       timeLine.className = 'current-time-line';
-      timeLine.style.top = (18 * 60 + 30) + 'px';
+      timeLine.id = 'live-current-time-line';
+      timeLine.style.top = currentTimeInfo.topPx + 'px';
+      timeLine.title = 'Current Time: ' + formatTimeLabel(currentTimeInfo.floatHour);
       dayCol.appendChild(timeLine);
     }
 
@@ -241,6 +333,20 @@ function renderCalendar() {
       }
     }
   });
+}
+
+function updateLiveTimeIndicator() {
+  const timeLine = document.getElementById('live-current-time-line');
+  if (timeLine) {
+    const info = getCurrentTimeInfo(currentTz);
+    timeLine.style.top = info.topPx + 'px';
+    timeLine.title = 'Current Time: ' + formatTimeLabel(info.floatHour);
+  }
+}
+
+// Update current time indicator every 30 seconds
+if (typeof setInterval !== 'undefined') {
+  setInterval(updateLiveTimeIndicator, 30000);
 }
 
 function toggleSlotSelection(slotKey, dayText, timeText) {
@@ -422,7 +528,9 @@ function initCalendar() {
   renderCalendar();
   setTimeout(() => {
     if (scrollArea) {
-      scrollArea.scrollTop = 360;
+      const info = getCurrentTimeInfo(currentTz);
+      const targetScroll = Math.max(0, Math.min(info.topPx - 180, 24 * 60 - scrollArea.clientHeight));
+      scrollArea.scrollTop = targetScroll;
     }
   }, 100);
 }
@@ -436,6 +544,8 @@ window.addEventListener('load', () => {
   renderCalendar();
   const scrollArea = document.getElementById('scroll-area');
   if (scrollArea && scrollArea.scrollTop === 0) {
-    scrollArea.scrollTop = 360;
+    const info = getCurrentTimeInfo(currentTz);
+    const targetScroll = Math.max(0, Math.min(info.topPx - 180, 24 * 60 - scrollArea.clientHeight));
+    scrollArea.scrollTop = targetScroll;
   }
 });
