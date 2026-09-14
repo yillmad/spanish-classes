@@ -133,7 +133,7 @@ const timezoneAliases = {
   'cet': 'Europe/Rome'
 };
 
-let currentTz = 'America/Lima';
+let currentTz = 'America/Los_Angeles';
 
 // Initialize week days
 updateWeekDays(currentTz);
@@ -421,6 +421,11 @@ function changeTimezone(newTz) {
 }
 
 function detectInitialTimezone() {
+  const docTz = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz')));
+  if (docTz && timezoneOffsetsFromPeru[docTz] !== undefined) {
+    return docTz;
+  }
+
   try {
     const params = new URLSearchParams(window.location.search);
     const tzParam = params.get('tz');
@@ -431,21 +436,7 @@ function detectInitialTimezone() {
     }
   } catch (e) {}
 
-  try {
-    if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (detected) {
-        if (timezoneOffsetsFromPeru[detected] !== undefined) return detected;
-        if (autoTzMap[detected]) return autoTzMap[detected];
-        if (detected.includes('Lima') || detected.includes('Bogota') || detected.includes('Quito')) return 'America/Lima';
-        if (detected.includes('Los_Angeles') || detected.includes('Vancouver')) return 'America/Los_Angeles';
-        if (detected.includes('London') || detected.includes('Dublin')) return 'Europe/London';
-        if (detected.startsWith('Europe/')) return 'Europe/Rome';
-      }
-    }
-  } catch (e) {}
-
-  return 'America/Lima';
+  return 'America/Los_Angeles';
 }
 
 function openBookingModal() {
