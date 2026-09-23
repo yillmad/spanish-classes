@@ -45,13 +45,13 @@ function updateWeekDays(tz) {
     }
   } catch (e) {
     weekDays = [
-      { name: 'Mon', date: 7, full: 'Monday 7', isToday: false },
-      { name: 'Tue', date: 8, full: 'Tuesday 8', isToday: false },
-      { name: 'Wed', date: 9, full: 'Wednesday 9', isToday: false },
-      { name: 'Thu', date: 10, full: 'Thursday 10', isToday: true },
-      { name: 'Fri', date: 11, full: 'Friday 11', isToday: false },
-      { name: 'Sat', date: 12, full: 'Saturday 12', isToday: false },
-      { name: 'Sun', date: 13, full: 'Sunday 13', isToday: false }
+      { name: 'Mon', date: 21, full: 'Monday 21', isToday: false },
+      { name: 'Tue', date: 22, full: 'Tuesday 22', isToday: false },
+      { name: 'Wed', date: 23, full: 'Wednesday 23', isToday: true },
+      { name: 'Thu', date: 24, full: 'Thursday 24', isToday: false },
+      { name: 'Fri', date: 25, full: 'Friday 25', isToday: false },
+      { name: 'Sat', date: 26, full: 'Saturday 26', isToday: false },
+      { name: 'Sun', date: 27, full: 'Sunday 27', isToday: false }
     ];
   }
 }
@@ -167,14 +167,14 @@ const baseAvailableSlots = [
   // Monday (idx 0) - Classes: Suzie, Lena, Alex, Daniel, Adam (15.0 - 20.0 PT)
   { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Tuesday (idx 1) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Lucas & Aleister (19.5-20.5 PT)
-  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.0, 18.5, 19.0, 20.5, 21.0, 21.5] },
+  // Tuesday (idx 1) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Oliver (17.0-18.0 PT), Lucas & Aleister (19.5-20.5 PT)
+  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 18.0, 18.5, 19.0, 20.5, 21.0, 21.5] },
 
   // Wednesday (idx 2) - Classes: Suzie, Benjamin, Belma, Lena, Ruzgar (13.0-18.0 PT), Adam, Wesley & KC (18.5-20.5 PT)
   { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 18.0, 20.5, 21.0, 21.5] },
 
-  // Thursday (idx 3) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Oliver (18.0-19.0 PT)
-  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Thursday (idx 3) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT)
+  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
   // Friday (idx 4) - Classes: Suzie, Lena (15.0-17.0 PT)
   { dayIdx: 4, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
@@ -535,17 +535,22 @@ function initCalendar() {
   }, 100);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initCalendar);
-} else {
-  initCalendar();
-}
-window.addEventListener('load', () => {
-  renderCalendar();
-  const scrollArea = document.getElementById('scroll-area');
-  if (scrollArea && scrollArea.scrollTop === 0) {
-    const info = getCurrentTimeInfo(currentTz);
-    const targetScroll = Math.max(0, Math.min(info.topPx - 180, 24 * 60 - scrollArea.clientHeight));
-    scrollArea.scrollTop = targetScroll;
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCalendar);
+  } else {
+    initCalendar();
   }
-});
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    renderCalendar();
+    const scrollArea = document.getElementById('scroll-area');
+    if (scrollArea && scrollArea.scrollTop === 0) {
+      const info = getCurrentTimeInfo(currentTz);
+      const targetScroll = Math.max(0, Math.min(info.topPx - 180, 24 * 60 - scrollArea.clientHeight));
+      scrollArea.scrollTop = targetScroll;
+    }
+  });
+}
