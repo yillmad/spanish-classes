@@ -204,32 +204,91 @@ function groupSlotsIntoBlocks() {
     if (dayData.dayIdx === 6) return;
 
     const sortedHours = [...dayData.hours].sort((a, b) => a - b);
-    let i = 0;
+    if (sortedHours.length === 0) return;
 
-    while (i < sortedHours.length) {
-      const current = sortedHours[i];
-      const next = sortedHours[i + 1];
+    // Step 1: Segment sorted 30-min intervals into contiguous availability windows
+    const contiguousWindows = [];
+    let currentWindow = [sortedHours[0]];
 
-      if (current % 1 === 0 && next === current + 0.5) {
-        groupedEvents.push({
-          id: 'block-' + (eventId++),
-          dayIdx: dayData.dayIdx,
-          startHour: current,
-          durationHours: 1.0,
-          title: 'Available'
-        });
-        i += 2;
+    for (let i = 1; i < sortedHours.length; i++) {
+      if (Math.abs(sortedHours[i] - (sortedHours[i - 1] + 0.5)) < 1e-6) {
+        currentWindow.push(sortedHours[i]);
       } else {
+        contiguousWindows.push(currentWindow);
+        currentWindow = [sortedHours[i]];
+      }
+    }
+    contiguousWindows.push(currentWindow);
+
+    // Step 2: Optimize each contiguous window holistically to maximize 1-hour slots
+    // and only use a 30-minute slot when an odd half-hour remains
+    contiguousWindows.forEach(windowSlots => {
+      const n = windowSlots.length;
+
+      if (n === 1) {
         groupedEvents.push({
           id: 'block-' + (eventId++),
           dayIdx: dayData.dayIdx,
-          startHour: current,
+          startHour: windowSlots[0],
           durationHours: 0.5,
           title: 'Available'
         });
-        i += 1;
+      } else if (n % 2 === 0) {
+        // Even number of 30-min slots (1h, 2h, 3h, ...):
+        // Pair completely into uninterrupted 1-hour slots (zero 30-min fragmentation),
+        // including windows starting on the half-hour (e.g., 6:30 PM - 7:30 PM).
+        for (let j = 0; j < n; j += 2) {
+          groupedEvents.push({
+            id: 'block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[j],
+            durationHours: 1.0,
+            title: 'Available'
+          });
+        }
+      } else {
+        // Odd number of 30-min slots >= 3 (1.5h, 2.5h, 4.5h, ...):
+        // Produces Math.floor(n / 2) 1-hour slots and exactly one 30-min slot.
+        // Place the single 30-min slot at the boundary that aligns all 1-hour slots on the hour (:00).
+        if (windowSlots[0] % 1 !== 0) {
+          // Starts at :30 (ends at :00) -> 30-min slot first, then on-the-hour 1-hour slots
+          groupedEvents.push({
+            id: 'block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[0],
+            durationHours: 0.5,
+            title: 'Available'
+          });
+          for (let j = 1; j < n; j += 2) {
+            groupedEvents.push({
+              id: 'block-' + (eventId++),
+              dayIdx: dayData.dayIdx,
+              startHour: windowSlots[j],
+              durationHours: 1.0,
+              title: 'Available'
+            });
+          }
+        } else {
+          // Starts at :00 (ends at :30) -> on-the-hour 1-hour slots first, then 30-min slot at end
+          for (let j = 0; j < n - 1; j += 2) {
+            groupedEvents.push({
+              id: 'block-' + (eventId++),
+              dayIdx: dayData.dayIdx,
+              startHour: windowSlots[j],
+              durationHours: 1.0,
+              title: 'Available'
+            });
+          }
+          groupedEvents.push({
+            id: 'block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[n - 1],
+            durationHours: 0.5,
+            title: 'Available'
+          });
+        }
       }
-    }
+    });
   });
 
   return groupedEvents;

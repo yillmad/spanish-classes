@@ -222,32 +222,80 @@ function groupSlotsIntoBlocks() {
 
   baseAvailableSlots.forEach(dayData => {
     const sortedHours = [...dayData.hours].sort((a, b) => a - b);
-    let i = 0;
+    if (sortedHours.length === 0) return;
 
-    while (i < sortedHours.length) {
-      const current = sortedHours[i];
-      const next = sortedHours[i + 1];
+    const contiguousWindows = [];
+    let currentWindow = [sortedHours[0]];
 
-      if (current % 1 === 0 && next === current + 0.5) {
-        groupedEvents.push({
-          id: 'camila-block-' + (eventId++),
-          dayIdx: dayData.dayIdx,
-          startHour: current,
-          durationHours: 1.0,
-          title: 'Available'
-        });
-        i += 2;
+    for (let i = 1; i < sortedHours.length; i++) {
+      if (Math.abs(sortedHours[i] - (sortedHours[i - 1] + 0.5)) < 1e-6) {
+        currentWindow.push(sortedHours[i]);
       } else {
+        contiguousWindows.push(currentWindow);
+        currentWindow = [sortedHours[i]];
+      }
+    }
+    contiguousWindows.push(currentWindow);
+
+    contiguousWindows.forEach(windowSlots => {
+      const n = windowSlots.length;
+
+      if (n === 1) {
         groupedEvents.push({
           id: 'camila-block-' + (eventId++),
           dayIdx: dayData.dayIdx,
-          startHour: current,
+          startHour: windowSlots[0],
           durationHours: 0.5,
           title: 'Available'
         });
-        i += 1;
+      } else if (n % 2 === 0) {
+        for (let j = 0; j < n; j += 2) {
+          groupedEvents.push({
+            id: 'camila-block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[j],
+            durationHours: 1.0,
+            title: 'Available'
+          });
+        }
+      } else {
+        if (windowSlots[0] % 1 !== 0) {
+          groupedEvents.push({
+            id: 'camila-block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[0],
+            durationHours: 0.5,
+            title: 'Available'
+          });
+          for (let j = 1; j < n; j += 2) {
+            groupedEvents.push({
+              id: 'camila-block-' + (eventId++),
+              dayIdx: dayData.dayIdx,
+              startHour: windowSlots[j],
+              durationHours: 1.0,
+              title: 'Available'
+            });
+          }
+        } else {
+          for (let j = 0; j < n - 1; j += 2) {
+            groupedEvents.push({
+              id: 'camila-block-' + (eventId++),
+              dayIdx: dayData.dayIdx,
+              startHour: windowSlots[j],
+              durationHours: 1.0,
+              title: 'Available'
+            });
+          }
+          groupedEvents.push({
+            id: 'camila-block-' + (eventId++),
+            dayIdx: dayData.dayIdx,
+            startHour: windowSlots[n - 1],
+            durationHours: 0.5,
+            title: 'Available'
+          });
+        }
       }
-    }
+    });
   });
 
   return groupedEvents;
