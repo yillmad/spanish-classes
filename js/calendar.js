@@ -1,22 +1,25 @@
 /**
  * Spanish Classes with Yill - Calendar & Availability Logic
+ *
+ * Rules Enforced:
+ * 1. Sync with Google Calendar: Automatically calculates available 30-min slots by removing any timed busy conflicts.
+ * 2. Keep Sundays unavailable: Sunday (dayIdx 6) is strictly locked to [] under all circumstances.
+ * 3. Ignore all-day events: Events without specific start/end dateTime (i.e. start.date only) are ignored.
+ * 4. Display recurring weekdays only: Headers show only Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday (no specific calendar date numbers).
+ * 5. Background synchronization: Syncs with calendar data in the background while keeping the recurring weekday display consistent.
  */
 
 let weekDays = [];
 
 function updateWeekDays(tz) {
+  const dayShortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
   try {
     const now = new Date();
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
-      weekday: 'short',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric',
-      hour12: false
+      weekday: 'short'
     });
     const parts = formatter.formatToParts(now);
     const map = {};
@@ -24,35 +27,24 @@ function updateWeekDays(tz) {
 
     const dayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
     const currentDayIdx = dayMap[map.weekday] !== undefined ? dayMap[map.weekday] : 0;
-    const year = parseInt(map.year, 10);
-    const month = parseInt(map.month, 10);
-    const day = parseInt(map.day, 10);
 
-    const dayShortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const dayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
+    // Rule 4: Display recurring weekdays only (no specific calendar dates)
     weekDays = [];
     for (let i = 0; i < 7; i++) {
-      const diff = i - currentDayIdx;
-      const d = new Date(year, month - 1, day + diff);
-      const dateNum = d.getDate();
       weekDays.push({
-        name: dayShortNames[i],
-        date: dateNum,
-        full: dayFullNames[i] + ' ' + dateNum,
+        name: dayFullNames[i],
+        shortName: dayShortNames[i],
+        full: dayFullNames[i],
         isToday: (i === currentDayIdx)
       });
     }
   } catch (e) {
-    weekDays = [
-      { name: 'Mon', date: 21, full: 'Monday 21', isToday: false },
-      { name: 'Tue', date: 22, full: 'Tuesday 22', isToday: false },
-      { name: 'Wed', date: 23, full: 'Wednesday 23', isToday: true },
-      { name: 'Thu', date: 24, full: 'Thursday 24', isToday: false },
-      { name: 'Fri', date: 25, full: 'Friday 25', isToday: false },
-      { name: 'Sat', date: 26, full: 'Saturday 26', isToday: false },
-      { name: 'Sun', date: 27, full: 'Sunday 27', isToday: false }
-    ];
+    weekDays = dayFullNames.map((full, i) => ({
+      name: full,
+      shortName: dayShortNames[i],
+      full: full,
+      isToday: (i === 0)
+    }));
   }
 }
 
@@ -159,30 +151,47 @@ const timezoneAliases = {
 
 let currentTz = 'America/Los_Angeles';
 
+// Daily working window in Washington PT (6:00 AM to 10:00 PM PT = 8:00 AM to 12:00 AM PET)
+const DEFAULT_WORKING_HOURS_PT = Array.from({ length: 32 }, (_, i) => 6.0 + i * 0.5);
+
+// Background Google Calendar Sync Configuration
+const GOOGLE_CALENDAR_CONFIG = {
+  calendarId: 'yill.salvatore@gmail.com',
+  apiKey: '',       // Optional: Google Calendar API key (if calendar free/busy is public)
+  syncEndpoint: 'https://script.google.com/macros/s/AKfycbzw_LUK6FT81-gvA1hFCD3GU8kh_3XN0jtii0XxjqYDyRJJjzjgwIM1k7IqpMVkmp_g/exec'
+};
+
 // Initialize week days
 updateWeekDays(currentTz);
 
-// 30-MINUTE SLOTS (WA TIME) - Calculated from Google Calendar Free Windows
-const baseAvailableSlots = [
-  // Monday (idx 0) - Classes: Suzie, Lena, Alex, Daniel, Adam (15.0 - 20.0 PT)
-  { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 20.0, 20.5, 21.0, 21.5] },
+/**
+ * 30-MINUTE SLOTS (WA TIME) - Synchronized with Google Calendar (yill.salvatore@gmail.com)
+ * Rules applied:
+ * - Rule 1: All timed events removed from working window (6:00 AM - 10:00 PM PT)
+ * - Rule 2: Sundays strictly unavailable (hours: [])
+ * - Rule 3: All-day events (e.g., "Cancelar Google One", "Revisión estado financiero") ignored
+ */
+let baseAvailableSlots = [
+  // Monday (idx 0) - Busy: Kayla (13.5-14.25), Kailani (14.25-15.0), Suzie (15.0-16.0), Lena (16.0-17.0), Alex (17.0-18.0), Daniel (18.0-19.0), Adam (19.0-20.0)
+  { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 20.0, 20.5, 21.0, 21.5] },
 
-  // Tuesday (idx 1) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT), Oliver (17.0-18.0 PT), Lucas & Aleister (19.5-20.5 PT)
-  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 18.0, 18.5, 19.0, 20.5, 21.0, 21.5] },
+  // Tuesday (idx 1) - Busy: Natalia (14.0-15.0), Suzie (15.0-16.0), Janae (16.0-16.5), Lena (16.5-17.5), Ruzgar (17.5-18.5), Lucas & Aleister (19.5-20.5)
+  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 18.5, 19.0, 20.5, 21.0, 21.5] },
 
-  // Wednesday (idx 2) - Classes: Suzie, Benjamin, Belma, Lena, Ruzgar (13.0-18.0 PT), Adam, Wesley & KC (18.5-20.5 PT)
-  { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 18.0, 20.5, 21.0, 21.5] },
+  // Wednesday (idx 2) - Busy: Suzie (13.0-14.0), Benjamin (14.0-15.0), Belma (15.0-16.0), Oliver (16.0-17.0), Janae (17.0-17.5), Ruzgar (17.5-18.5), Adam (18.5-19.5), Wesley & KC (19.5-20.5)
+  { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 20.5, 21.0, 21.5] },
 
-  // Thursday (idx 3) - Classes: Kayla, Kailani, Suzie, Lena (13.5-17.0 PT)
-  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Thursday (idx 3) - Busy: Kayla (13.5-14.25), Kailani (14.25-15.0), Suzie (15.0-16.0), Janae (16.0-16.5), Lena (16.5-17.5)
+  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Friday (idx 4) - Classes: Suzie, Lena (15.0-17.0 PT)
-  { dayIdx: 4, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Friday (idx 4) - Busy: Natalia (14.0-15.0), Suzie (15.0-16.0), Lena (16.0-17.0), Teah (17.0-18.0)
+  { dayIdx: 4, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Saturday (idx 5) - Classes: Macie-Brielle, Caiah, Adriel, Aleister Lucas Eva, OB, Iana (7.0-11.25 PT)
-  { dayIdx: 5, hours: [6.0, 6.5, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
+  // Saturday (idx 5) - Busy: Macie-Brielle (7.0-7.5), Caiah (7.5-8.0), Adriel (8.0-8.5), Aleister/Lucas/Eva (8.5-9.5), OB (9.5-10.5), Iana (10.5-11.25), Lena (11.5-12.5)
+  // Note: All-day event "Cancelar Google One" is ignored per Rule 3
+  { dayIdx: 5, hours: [6.0, 6.5, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
 
-  // Sunday (idx 6) - Off / Church
+  // Sunday (idx 6) - Rule 2: Always unavailable under all circumstances
   { dayIdx: 6, hours: [] }
 ];
 
@@ -191,6 +200,9 @@ function groupSlotsIntoBlocks() {
   let eventId = 1;
 
   baseAvailableSlots.forEach(dayData => {
+    // Rule 2: Enforce Sunday is always empty regardless of external data
+    if (dayData.dayIdx === 6) return;
+
     const sortedHours = [...dayData.hours].sort((a, b) => a - b);
     let i = 0;
 
@@ -223,8 +235,132 @@ function groupSlotsIntoBlocks() {
   return groupedEvents;
 }
 
-const baseEvents = groupSlotsIntoBlocks();
+let baseEvents = groupSlotsIntoBlocks();
 let selectedSlots = [];
+
+/**
+ * Background Calendar Synchronization Engine
+ * Computes available slots from raw Google Calendar event items while enforcing:
+ * - Rule 1: Busy timed events remove overlapping 30-min slots
+ * - Rule 2: Sunday (dayIdx === 6) is always unavailable
+ * - Rule 3: All-day events (events with start.date instead of start.dateTime) are ignored
+ */
+function applyCalendarEventsToAvailability(calendarItems) {
+  if (!Array.isArray(calendarItems)) return;
+
+  const busyIntervalsByDay = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+  const dayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+
+  calendarItems.forEach(item => {
+    if (!item || item.status === 'cancelled') return;
+
+    // Rule 3: Ignore all-day events (only process events with specific start.dateTime and end.dateTime)
+    if (!item.start || !item.start.dateTime || !item.end || !item.end.dateTime) {
+      return;
+    }
+
+    // Ignore transparent ("Free") events such as flight reminders marked as free
+    if (item.transparency === 'transparent' || item.availability === 'AVAILABILITY_FREE') {
+      return;
+    }
+
+    const startDate = new Date(item.start.dateTime);
+    const endDate = new Date(item.end.dateTime);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return;
+
+    // Convert event start/end to Washington PT ('America/Los_Angeles')
+    const ptFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+
+    const startParts = {};
+    ptFormatter.formatToParts(startDate).forEach(p => { startParts[p.type] = p.value; });
+    const endParts = {};
+    ptFormatter.formatToParts(endDate).forEach(p => { endParts[p.type] = p.value; });
+
+    const dayIdx = dayMap[startParts.weekday];
+    if (dayIdx === undefined || dayIdx === 6) return; // Rule 2: Sunday always unavailable
+
+    let startH = parseInt(startParts.hour, 10) || 0;
+    if (startH === 24) startH = 0;
+    const startM = parseInt(startParts.minute, 10) || 0;
+
+    let endH = parseInt(endParts.hour, 10) || 0;
+    if (endH === 24) endH = 0;
+    const endM = parseInt(endParts.minute, 10) || 0;
+
+    const startFloat = startH + startM / 60;
+    let endFloat = endH + endM / 60;
+    if (endFloat <= startFloat) endFloat = 24.0;
+
+    busyIntervalsByDay[dayIdx].push([startFloat, endFloat]);
+  });
+
+  const updatedSlots = [];
+  for (let d = 0; d < 7; d++) {
+    // Rule 2: Keep Sundays unavailable under all circumstances
+    if (d === 6) {
+      updatedSlots.push({ dayIdx: 6, hours: [] });
+      continue;
+    }
+
+    const busyList = busyIntervalsByDay[d] || [];
+    const freeHours = DEFAULT_WORKING_HOURS_PT.filter(slotStart => {
+      const slotEnd = slotStart + 0.5;
+      const hasConflict = busyList.some(([bStart, bEnd]) => Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd));
+      return !hasConflict;
+    });
+
+    updatedSlots.push({ dayIdx: d, hours: freeHours });
+  }
+
+  baseAvailableSlots = updatedSlots;
+  baseEvents = groupSlotsIntoBlocks();
+  renderCalendar();
+}
+
+async function syncWithGoogleCalendarInBackground() {
+  try {
+    let url = '';
+    if (GOOGLE_CALENDAR_CONFIG.syncEndpoint) {
+      url = GOOGLE_CALENDAR_CONFIG.syncEndpoint;
+    } else if (GOOGLE_CALENDAR_CONFIG.apiKey && GOOGLE_CALENDAR_CONFIG.calendarId) {
+      // Compute active week's Monday 00:00 to Sunday 23:59:59 (on Sunday, preview upcoming week)
+      const now = new Date();
+      const day = now.getDay();
+      const diffToMonday = day === 0 ? 1 : 1 - day;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+
+      url = 'https://www.googleapis.com/calendar/v3/calendars/' +
+        encodeURIComponent(GOOGLE_CALENDAR_CONFIG.calendarId) +
+        '/events?singleEvents=true&orderBy=startTime' +
+        '&timeMin=' + encodeURIComponent(monday.toISOString()) +
+        '&timeMax=' + encodeURIComponent(sunday.toISOString()) +
+        '&key=' + encodeURIComponent(GOOGLE_CALENDAR_CONFIG.apiKey);
+    }
+
+    if (!url) return;
+
+    const response = await fetch(url, { method: 'GET', redirect: 'follow' });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data && Array.isArray(data.items)) {
+      applyCalendarEventsToAvailability(data.items);
+    }
+  } catch (e) {
+    // Fallback silently to pre-synchronized baseAvailableSlots
+  }
+}
 
 function formatHourGoogle(hour24) {
   if (hour24 === 0) return '';
@@ -247,14 +383,14 @@ function renderCalendar() {
   updateWeekDays(currentTz);
   const currentTimeInfo = getCurrentTimeInfo(currentTz);
 
-  // 1. Render Header
+  // 1. Render Header (Rule 4: Display recurring weekdays only, no calendar dates)
   const headerContainer = document.getElementById('week-header');
   if (headerContainer) {
     headerContainer.innerHTML = '';
     weekDays.forEach(day => {
       const dayEl = document.createElement('div');
       dayEl.className = 'day-col-header' + (day.isToday ? ' is-today' : '');
-      dayEl.innerHTML = '<span class="day-name">' + day.name + '</span><span class="day-number">' + day.date + '</span>';
+      dayEl.innerHTML = '<span class="day-name">' + day.name + '</span>';
       headerContainer.appendChild(dayEl);
     });
   }
@@ -307,7 +443,8 @@ function renderCalendar() {
     let finalHour = (adjustedHour % 24 + 24) % 24;
     let targetDayIdx = evt.dayIdx + dayShift;
 
-    if (targetDayIdx >= 0 && targetDayIdx < weekDays.length) {
+    // Rule 2: Never display available slots on Sunday (targetDayIdx === 6)
+    if (targetDayIdx >= 0 && targetDayIdx < weekDays.length && targetDayIdx !== 6) {
       const dayCol = daysGrid.children[targetDayIdx];
       if (dayCol) {
         const chip = document.createElement('div');
@@ -402,7 +539,7 @@ function changeTimezone(newTz, shouldRedirect) {
 
 function detectInitialTimezone() {
   // 1. Explicit data-tz attribute on html or body (used by dedicated pages)
-  const docTz = document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz'));
+  const docTz = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz')));
   if (docTz && timezoneOffsets[docTz] !== undefined) {
     return docTz;
   }
@@ -434,7 +571,7 @@ function detectInitialTimezone() {
   } catch (e) {}
 
   // 4. Current dropdown value or default
-  const tzSelect = document.getElementById('tz-select');
+  const tzSelect = typeof document !== 'undefined' ? document.getElementById('tz-select') : null;
   if (tzSelect && tzSelect.value && timezoneOffsets[tzSelect.value] !== undefined) {
     return tzSelect.value;
   }
@@ -526,6 +663,8 @@ function initCalendar() {
   }
 
   renderCalendar();
+  syncWithGoogleCalendarInBackground();
+
   setTimeout(() => {
     if (scrollArea) {
       const info = getCurrentTimeInfo(currentTz);

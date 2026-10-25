@@ -248,21 +248,23 @@ header {
   grid-template-columns: repeat(7, minmax(75px, 1fr));
   width: 100%;
   min-width: 525px;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .day-col-header {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
 }
 
 .day-name {
-  font-size: 0.75rem;
-  color: var(--google-subtext);
-  text-transform: lowercase;
-  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--google-text);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 16px;
 }
 
 .day-number {
@@ -278,7 +280,8 @@ header {
 }
 
 .day-col-header.is-today .day-name {
-  color: var(--google-blue);
+  background-color: var(--google-blue);
+  color: white;
   font-weight: 700;
 }
 
