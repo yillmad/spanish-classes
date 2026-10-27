@@ -6,7 +6,12 @@
  * 2. Keep Sundays unavailable: Sunday (dayIdx 6) is strictly locked to [] under all circumstances.
  * 3. Ignore all-day events: Events without specific start/end dateTime (i.e. start.date only) are ignored.
  * 4. Display recurring weekdays only: Headers show only Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday (no specific calendar date numbers).
- * 5. Background synchronization: Syncs with calendar data in the background while keeping the recurring weekday display consistent.
+ * 5. Dynamic Rolling Availability:
+ *    - Days that already passed this week: take availability of next week.
+ *    - Days that have not yet arrived this week: take availability of this week.
+ *    - Hours that already passed today: take availability of the same day next week.
+ *    - Hours that have not passed today: take availability of today.
+ *    - 1-hour slots are prioritized, 30-minute slots used only when necessary.
  */
 
 let weekDays = [];
@@ -87,6 +92,50 @@ function getCurrentTimeInfo(tz) {
   }
 }
 
+function getPTDateParts(dateObj) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false
+  });
+  const parts = {};
+  formatter.formatToParts(dateObj).forEach(p => { parts[p.type] = p.value; });
+  const dayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+  let h = parseInt(parts.hour, 10) || 0;
+  if (h === 24) h = 0;
+  const m = parseInt(parts.minute, 10) || 0;
+  return {
+    year: parseInt(parts.year, 10),
+    month: parseInt(parts.month, 10),
+    day: parseInt(parts.day, 10),
+    dayIdx: dayMap[parts.weekday] !== undefined ? dayMap[parts.weekday] : 0,
+    weekday: parts.weekday,
+    floatHour: h + m / 60,
+    dateStr: `${parts.year}-${parts.month}-${parts.day}`
+  };
+}
+
+function getMondayOfCurrentWeek(ptParts) {
+  const d = new Date(Date.UTC(ptParts.year, ptParts.month - 1, ptParts.day));
+  d.setUTCDate(d.getUTCDate() - ptParts.dayIdx);
+  return d;
+}
+
+function getTargetDateStr(currentMondayUTC, daysOffset) {
+  const d = new Date(currentMondayUTC.getTime());
+  d.setUTCDate(d.getUTCDate() + daysOffset);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
 
 const timezoneOffsets = {
@@ -104,16 +153,13 @@ const timezonePages = {
 };
 
 const autoTzMap = {
-  // Pacific
   'America/Los_Angeles': 'America/Los_Angeles',
   'America/Vancouver': 'America/Los_Angeles',
   'America/Tijuana': 'America/Los_Angeles',
   'PST8PDT': 'America/Los_Angeles',
-  // UK / Ireland
   'Europe/London': 'Europe/London',
   'Europe/Dublin': 'Europe/London',
   'GB': 'Europe/London',
-  // Central / Western Europe
   'Europe/Rome': 'Europe/Rome',
   'Europe/Paris': 'Europe/Rome',
   'Europe/Madrid': 'Europe/Rome',
@@ -124,7 +170,6 @@ const autoTzMap = {
   'Europe/Zurich': 'Europe/Rome',
   'Europe/Prague': 'Europe/Rome',
   'Europe/Warsaw': 'Europe/Rome',
-  // Peru
   'America/Lima': 'America/Lima'
 };
 
@@ -165,221 +210,330 @@ const GOOGLE_CALENDAR_CONFIG = {
 updateWeekDays(currentTz);
 
 /**
- * 30-MINUTE SLOTS (WA TIME) - Synchronized with Google Calendar (yill.salvatore@gmail.com)
- * Rules applied:
- * - Rule 1: All timed events removed from working window (6:00 AM - 10:00 PM PT)
- * - Rule 2: Sundays strictly unavailable (hours: [])
- * - Rule 3: All-day events (e.g., "Cancelar Google One", "Revisión estado financiero") ignored
+ * Contiguous Window Slot Optimizer
+ * Maximizes 1-hour slots and utilizes 30-min slots only when an odd half-hour remains.
  */
-let baseAvailableSlots = [
-  // Monday (idx 0) - Busy: Kayla (13.5-14.25), Kailani (14.25-15.0), Suzie (15.0-16.0), Lena (16.0-17.0), Alex (17.0-18.0), Daniel (18.0-19.0), Adam (19.0-20.0)
-  { dayIdx: 0, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 20.0, 20.5, 21.0, 21.5] },
-
-  // Tuesday (idx 1) - Busy: Natalia (14.0-15.0), Suzie (15.0-16.0), Janae (16.0-16.5), Lena (16.5-17.5), Ruzgar (17.5-18.5), Lucas & Aleister (19.5-20.5)
-  { dayIdx: 1, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 18.5, 19.0, 20.5, 21.0, 21.5] },
-
-  // Wednesday (idx 2) - Busy: Suzie (13.0-14.0), Benjamin (14.0-15.0), Belma (15.0-16.0), Oliver (16.0-17.0), Janae (17.0-17.5), Ruzgar (17.5-18.5), Adam (18.5-19.5), Wesley & KC (19.5-20.5)
-  { dayIdx: 2, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 20.5, 21.0, 21.5] },
-
-  // Thursday (idx 3) - Busy: Kayla (13.5-14.25), Kailani (14.25-15.0), Suzie (15.0-16.0), Janae (16.0-16.5), Lena (16.5-17.5)
-  { dayIdx: 3, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
-
-  // Friday (idx 4) - Busy: Natalia (14.0-15.0), Suzie (15.0-16.0), Lena (16.0-17.0), Teah (17.0-18.0)
-  { dayIdx: 4, hours: [6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
-
-  // Saturday (idx 5) - Busy: Macie-Brielle (7.0-7.5), Caiah (7.5-8.0), Adriel (8.0-8.5), Aleister/Lucas/Eva (8.5-9.5), OB (9.5-10.5), Iana (10.5-11.25), Lena (11.5-12.5)
-  // Note: All-day event "Cancelar Google One" is ignored per Rule 3
-  { dayIdx: 5, hours: [6.0, 6.5, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5] },
-
-  // Sunday (idx 6) - Rule 2: Always unavailable under all circumstances
-  { dayIdx: 6, hours: [] }
-];
-
-function groupSlotsIntoBlocks() {
-  const groupedEvents = [];
-  let eventId = 1;
-
-  baseAvailableSlots.forEach(dayData => {
-    // Rule 2: Enforce Sunday is always empty regardless of external data
-    if (dayData.dayIdx === 6) return;
-
-    const sortedHours = [...dayData.hours].sort((a, b) => a - b);
-    if (sortedHours.length === 0) return;
-
-    // Step 1: Segment sorted 30-min intervals into contiguous availability windows
-    const contiguousWindows = [];
-    let currentWindow = [sortedHours[0]];
-
-    for (let i = 1; i < sortedHours.length; i++) {
-      if (Math.abs(sortedHours[i] - (sortedHours[i - 1] + 0.5)) < 1e-6) {
-        currentWindow.push(sortedHours[i]);
-      } else {
-        contiguousWindows.push(currentWindow);
-        currentWindow = [sortedHours[i]];
-      }
+function optimizeContiguousWindow(windowSlots) {
+  const blocks = [];
+  const n = windowSlots.length;
+  if (n === 1) {
+    blocks.push({ startHour: windowSlots[0], durationHours: 0.5 });
+  } else if (n % 2 === 0) {
+    // Even number of 30-min intervals -> all full 1-hour slots
+    for (let j = 0; j < n; j += 2) {
+      blocks.push({ startHour: windowSlots[j], durationHours: 1.0 });
     }
-    contiguousWindows.push(currentWindow);
-
-    // Step 2: Optimize each contiguous window holistically to maximize 1-hour slots
-    // and only use a 30-minute slot when an odd half-hour remains
-    contiguousWindows.forEach(windowSlots => {
-      const n = windowSlots.length;
-
-      if (n === 1) {
-        groupedEvents.push({
-          id: 'block-' + (eventId++),
-          dayIdx: dayData.dayIdx,
-          startHour: windowSlots[0],
-          durationHours: 0.5,
-          title: 'Available'
-        });
-      } else if (n % 2 === 0) {
-        // Even number of 30-min slots (1h, 2h, 3h, ...):
-        // Pair completely into uninterrupted 1-hour slots (zero 30-min fragmentation),
-        // including windows starting on the half-hour (e.g., 6:30 PM - 7:30 PM).
-        for (let j = 0; j < n; j += 2) {
-          groupedEvents.push({
-            id: 'block-' + (eventId++),
-            dayIdx: dayData.dayIdx,
-            startHour: windowSlots[j],
-            durationHours: 1.0,
-            title: 'Available'
-          });
-        }
-      } else {
-        // Odd number of 30-min slots >= 3 (1.5h, 2.5h, 4.5h, ...):
-        // Produces Math.floor(n / 2) 1-hour slots and exactly one 30-min slot.
-        // Place the single 30-min slot at the boundary that aligns all 1-hour slots on the hour (:00).
-        if (windowSlots[0] % 1 !== 0) {
-          // Starts at :30 (ends at :00) -> 30-min slot first, then on-the-hour 1-hour slots
-          groupedEvents.push({
-            id: 'block-' + (eventId++),
-            dayIdx: dayData.dayIdx,
-            startHour: windowSlots[0],
-            durationHours: 0.5,
-            title: 'Available'
-          });
-          for (let j = 1; j < n; j += 2) {
-            groupedEvents.push({
-              id: 'block-' + (eventId++),
-              dayIdx: dayData.dayIdx,
-              startHour: windowSlots[j],
-              durationHours: 1.0,
-              title: 'Available'
-            });
-          }
-        } else {
-          // Starts at :00 (ends at :30) -> on-the-hour 1-hour slots first, then 30-min slot at end
-          for (let j = 0; j < n - 1; j += 2) {
-            groupedEvents.push({
-              id: 'block-' + (eventId++),
-              dayIdx: dayData.dayIdx,
-              startHour: windowSlots[j],
-              durationHours: 1.0,
-              title: 'Available'
-            });
-          }
-          groupedEvents.push({
-            id: 'block-' + (eventId++),
-            dayIdx: dayData.dayIdx,
-            startHour: windowSlots[n - 1],
-            durationHours: 0.5,
-            title: 'Available'
-          });
-        }
+  } else {
+    // Odd number of 30-min intervals -> Math.floor(n/2) 1-hour slots + 1 30-min slot
+    if (windowSlots[0] % 1 !== 0) {
+      // Starts at :30 -> 30-min slot first, aligning remaining 1-hour slots on the hour
+      blocks.push({ startHour: windowSlots[0], durationHours: 0.5 });
+      for (let j = 1; j < n; j += 2) {
+        blocks.push({ startHour: windowSlots[j], durationHours: 1.0 });
       }
-    });
-  });
-
-  return groupedEvents;
+    } else {
+      // Starts at :00 -> 1-hour slots on the hour, 30-min slot at the end
+      for (let j = 0; j < n - 1; j += 2) {
+        blocks.push({ startHour: windowSlots[j], durationHours: 1.0 });
+      }
+      blocks.push({ startHour: windowSlots[n - 1], durationHours: 0.5 });
+    }
+  }
+  return blocks;
 }
 
-let baseEvents = groupSlotsIntoBlocks();
+function groupSlotsIntoContiguousBlocks(hoursList) {
+  if (!hoursList || hoursList.length === 0) return [];
+  const sorted = [...hoursList].sort((a, b) => a - b);
+  const windows = [];
+  let curr = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (Math.abs(sorted[i] - (sorted[i - 1] + 0.5)) < 1e-6) {
+      curr.push(sorted[i]);
+    } else {
+      windows.push(curr);
+      curr = [sorted[i]];
+    }
+  }
+  windows.push(curr);
+
+  const blocks = [];
+  windows.forEach(w => {
+    blocks.push(...optimizeContiguousWindow(w));
+  });
+  return blocks;
+}
+
+// Global state of computed available slots and events
+let baseAvailableSlots = [];
+let baseEvents = [];
 let selectedSlots = [];
+let latestRawCalendarItems = [];
 
 /**
- * Background Calendar Synchronization Engine
- * Computes available slots from raw Google Calendar event items while enforcing:
- * - Rule 1: Busy timed events remove overlapping 30-min slots
- * - Rule 2: Sunday (dayIdx === 6) is always unavailable
- * - Rule 3: All-day events (events with start.date instead of start.dateTime) are ignored
+ * Dynamic Rolling Availability Engine
+ * Computes availability strictly following:
+ * - Days that already passed this week: take availability of next week
+ * - Days that have not yet arrived this week: take availability of this week
+ * - Hours that already passed today: take availability of the same day next week
+ * - Hours that have not passed today: take availability of today
+ * - Sunday: strictly locked as unavailable under all circumstances
  */
-function applyCalendarEventsToAvailability(calendarItems) {
-  if (!Array.isArray(calendarItems)) return;
+function recalculateRollingAvailability(calendarItems) {
+  if (Array.isArray(calendarItems) && calendarItems.length > 0) {
+    latestRawCalendarItems = calendarItems;
+  }
+  const items = latestRawCalendarItems || [];
 
-  const busyIntervalsByDay = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-  const dayMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+  const now = new Date();
+  const ptParts = getPTDateParts(now);
+  const currentDayIdx = ptParts.dayIdx;
+  const currentHourFloat = ptParts.floatHour;
+  const currentMonday = getMondayOfCurrentWeek(ptParts);
 
-  calendarItems.forEach(item => {
+  // Parse all timed non-transparent events into PT
+  const parsedEvents = [];
+  const ptFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false
+  });
+
+  items.forEach(item => {
     if (!item || item.status === 'cancelled') return;
+    // Rule 3: Ignore all-day events
+    if (!item.start || !item.start.dateTime || !item.end || !item.end.dateTime) return;
+    // Ignore transparent / free events
+    if (item.transparency === 'transparent' || item.availability === 'AVAILABILITY_FREE') return;
 
-    // Rule 3: Ignore all-day events (only process events with specific start.dateTime and end.dateTime)
-    if (!item.start || !item.start.dateTime || !item.end || !item.end.dateTime) {
-      return;
+    const sDate = new Date(item.start.dateTime);
+    const eDate = new Date(item.end.dateTime);
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) return;
+
+    const sParts = {};
+    ptFormatter.formatToParts(sDate).forEach(p => { sParts[p.type] = p.value; });
+    const eParts = {};
+    ptFormatter.formatToParts(eDate).forEach(p => { eParts[p.type] = p.value; });
+
+    let sH = parseInt(sParts.hour, 10) || 0;
+    if (sH === 24) sH = 0;
+    const sM = parseInt(sParts.minute, 10) || 0;
+
+    let eH = parseInt(eParts.hour, 10) || 0;
+    if (eH === 24) eH = 0;
+    const eM = parseInt(eParts.minute, 10) || 0;
+
+    const startFloat = sH + sM / 60;
+    let endFloat = eH + eM / 60;
+    if (sParts.year === eParts.year && sParts.month === eParts.month && sParts.day === eParts.day) {
+      if (endFloat <= startFloat) endFloat = 24.0;
+    } else {
+      endFloat = 24.0;
     }
 
-    // Ignore transparent ("Free") events such as flight reminders marked as free
-    if (item.transparency === 'transparent' || item.availability === 'AVAILABILITY_FREE') {
-      return;
-    }
-
-    const startDate = new Date(item.start.dateTime);
-    const endDate = new Date(item.end.dateTime);
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return;
-
-    // Convert event start/end to Washington PT ('America/Los_Angeles')
-    const ptFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Los_Angeles',
-      weekday: 'short',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false
+    parsedEvents.push({
+      dateStr: `${sParts.year}-${sParts.month}-${sParts.day}`,
+      startFloat: startFloat,
+      endFloat: endFloat
     });
-
-    const startParts = {};
-    ptFormatter.formatToParts(startDate).forEach(p => { startParts[p.type] = p.value; });
-    const endParts = {};
-    ptFormatter.formatToParts(endDate).forEach(p => { endParts[p.type] = p.value; });
-
-    const dayIdx = dayMap[startParts.weekday];
-    if (dayIdx === undefined || dayIdx === 6) return; // Rule 2: Sunday always unavailable
-
-    let startH = parseInt(startParts.hour, 10) || 0;
-    if (startH === 24) startH = 0;
-    const startM = parseInt(startParts.minute, 10) || 0;
-
-    let endH = parseInt(endParts.hour, 10) || 0;
-    if (endH === 24) endH = 0;
-    const endM = parseInt(endParts.minute, 10) || 0;
-
-    const startFloat = startH + startM / 60;
-    let endFloat = endH + endM / 60;
-    if (endFloat <= startFloat) endFloat = 24.0;
-
-    busyIntervalsByDay[dayIdx].push([startFloat, endFloat]);
   });
 
   const updatedSlots = [];
+  const generatedBlocks = [];
+  let blockId = 1;
+
   for (let d = 0; d < 7; d++) {
-    // Rule 2: Keep Sundays unavailable under all circumstances
+    // Rule 2: Sunday always unavailable under all circumstances
     if (d === 6) {
       updatedSlots.push({ dayIdx: 6, hours: [] });
       continue;
     }
 
-    const busyList = busyIntervalsByDay[d] || [];
-    const freeHours = DEFAULT_WORKING_HOURS_PT.filter(slotStart => {
-      const slotEnd = slotStart + 0.5;
-      const hasConflict = busyList.some(([bStart, bEnd]) => Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd));
-      return !hasConflict;
+    const freePastHours = [];   // Belongs to next week
+    const freeFutureHours = []; // Belongs to this week
+
+    DEFAULT_WORKING_HOURS_PT.forEach(h => {
+      const slotS = h;
+      const slotE = h + 0.5;
+
+      let isNextWeek = false;
+      let daysOffset = 0;
+
+      if (d < currentDayIdx) {
+        // Day already passed this week -> Next week
+        isNextWeek = true;
+        daysOffset = 7 + d;
+      } else if (d > currentDayIdx) {
+        // Day has not yet arrived this week -> This week
+        isNextWeek = false;
+        daysOffset = d;
+      } else {
+        // Today!
+        if (h < currentHourFloat) {
+          // Hour already passed today -> Next week
+          isNextWeek = true;
+          daysOffset = 7 + d;
+        } else {
+          // Hour has not yet passed today -> Today
+          isNextWeek = false;
+          daysOffset = d;
+        }
+      }
+
+      const targetDateStr = getTargetDateStr(currentMonday, daysOffset);
+
+      // Check conflict with parsed events on targetDateStr
+      const isBusy = parsedEvents.some(ev => {
+        return ev.dateStr === targetDateStr && Math.max(slotS, ev.startFloat) < Math.min(slotE, ev.endFloat);
+      });
+
+      if (!isBusy) {
+        if (isNextWeek) {
+          freePastHours.push({ hour: h, targetDateStr: targetDateStr });
+        } else {
+          freeFutureHours.push({ hour: h, targetDateStr: targetDateStr });
+        }
+      }
     });
 
-    updatedSlots.push({ dayIdx: d, hours: freeHours });
+    // Combine hours for baseAvailableSlots record
+    const allFreeHours = [...freePastHours.map(x => x.hour), ...freeFutureHours.map(x => x.hour)].sort((a, b) => a - b);
+    updatedSlots.push({ dayIdx: d, hours: allFreeHours });
+
+    // Group into 1-hour and 30-min blocks according to contiguous windows
+    if (d !== currentDayIdx) {
+      const isDayNextWeek = (d < currentDayIdx);
+      const targetHours = isDayNextWeek ? freePastHours.map(x => x.hour) : freeFutureHours.map(x => x.hour);
+      const targetDateStr = isDayNextWeek ? getTargetDateStr(currentMonday, 7 + d) : getTargetDateStr(currentMonday, d);
+
+      const blocks = groupSlotsIntoContiguousBlocks(targetHours);
+      blocks.forEach(b => {
+        generatedBlocks.push({
+          id: 'block-' + (blockId++),
+          dayIdx: d,
+          startHour: b.startHour,
+          durationHours: b.durationHours,
+          isNextWeek: isDayNextWeek,
+          targetDateStr: targetDateStr,
+          title: 'Available'
+        });
+      });
+    } else {
+      // Today: optimize past-today (next week) and future-today (today) independently
+      // so no 1-hour block ever crosses between next week and today
+      const targetPastDateStr = getTargetDateStr(currentMonday, 7 + d);
+      const targetFutureDateStr = getTargetDateStr(currentMonday, d);
+
+      const pastBlocks = groupSlotsIntoContiguousBlocks(freePastHours.map(x => x.hour));
+      const futureBlocks = groupSlotsIntoContiguousBlocks(freeFutureHours.map(x => x.hour));
+
+      pastBlocks.forEach(b => {
+        generatedBlocks.push({
+          id: 'block-' + (blockId++),
+          dayIdx: d,
+          startHour: b.startHour,
+          durationHours: b.durationHours,
+          isNextWeek: true,
+          targetDateStr: targetPastDateStr,
+          title: 'Available'
+        });
+      });
+
+      futureBlocks.forEach(b => {
+        generatedBlocks.push({
+          id: 'block-' + (blockId++),
+          dayIdx: d,
+          startHour: b.startHour,
+          durationHours: b.durationHours,
+          isNextWeek: false,
+          targetDateStr: targetFutureDateStr,
+          title: 'Available'
+        });
+      });
+    }
   }
 
+  generatedBlocks.sort((a, b) => {
+    if (a.dayIdx !== b.dayIdx) return a.dayIdx - b.dayIdx;
+    return a.startHour - b.startHour;
+  });
+
   baseAvailableSlots = updatedSlots;
-  baseEvents = groupSlotsIntoBlocks();
+  baseEvents = generatedBlocks;
   renderCalendar();
+}
+
+// Initial pre-synchronized events covering current & next week
+const INITIAL_CALENDAR_EVENTS = [
+  // Monday Oct 26
+  { start: { dateTime: '2026-10-26T15:30:00-05:00' }, end: { dateTime: '2026-10-26T16:15:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T16:15:00-05:00' }, end: { dateTime: '2026-10-26T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T17:00:00-05:00' }, end: { dateTime: '2026-10-26T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T18:00:00-05:00' }, end: { dateTime: '2026-10-26T19:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T19:00:00-05:00' }, end: { dateTime: '2026-10-26T20:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T20:00:00-05:00' }, end: { dateTime: '2026-10-26T21:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-26T21:00:00-05:00' }, end: { dateTime: '2026-10-26T22:00:00-05:00' }, status: 'confirmed' },
+  // Tuesday Oct 27
+  { start: { dateTime: '2026-10-27T16:00:00-05:00' }, end: { dateTime: '2026-10-27T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T17:00:00-05:00' }, end: { dateTime: '2026-10-27T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T18:00:00-05:00' }, end: { dateTime: '2026-10-27T18:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T18:30:00-05:00' }, end: { dateTime: '2026-10-27T19:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T19:30:00-05:00' }, end: { dateTime: '2026-10-27T20:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T20:30:00-05:00' }, end: { dateTime: '2026-10-27T21:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-27T21:30:00-05:00' }, end: { dateTime: '2026-10-27T22:30:00-05:00' }, status: 'confirmed' },
+  // Wednesday Oct 28
+  { start: { dateTime: '2026-10-28T15:00:00-05:00' }, end: { dateTime: '2026-10-28T16:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T16:00:00-05:00' }, end: { dateTime: '2026-10-28T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T17:00:00-05:00' }, end: { dateTime: '2026-10-28T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T18:00:00-05:00' }, end: { dateTime: '2026-10-28T19:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T19:00:00-05:00' }, end: { dateTime: '2026-10-28T19:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T20:30:00-05:00' }, end: { dateTime: '2026-10-28T21:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-28T21:30:00-05:00' }, end: { dateTime: '2026-10-28T22:30:00-05:00' }, status: 'confirmed' },
+  // Thursday Oct 29
+  { start: { dateTime: '2026-10-29T15:30:00-05:00' }, end: { dateTime: '2026-10-29T16:15:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-29T16:15:00-05:00' }, end: { dateTime: '2026-10-29T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-29T17:00:00-05:00' }, end: { dateTime: '2026-10-29T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-29T18:00:00-05:00' }, end: { dateTime: '2026-10-29T18:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-29T18:30:00-05:00' }, end: { dateTime: '2026-10-29T19:30:00-05:00' }, status: 'confirmed' },
+  // Friday Oct 30
+  { start: { dateTime: '2026-10-30T16:00:00-05:00' }, end: { dateTime: '2026-10-30T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-30T17:00:00-05:00' }, end: { dateTime: '2026-10-30T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-30T18:00:00-05:00' }, end: { dateTime: '2026-10-30T19:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-30T19:00:00-05:00' }, end: { dateTime: '2026-10-30T20:00:00-05:00' }, status: 'confirmed' },
+  // Saturday Oct 31
+  { start: { dateTime: '2026-10-31T09:00:00-05:00' }, end: { dateTime: '2026-10-31T09:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T09:30:00-05:00' }, end: { dateTime: '2026-10-31T10:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T10:00:00-05:00' }, end: { dateTime: '2026-10-31T10:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T10:30:00-05:00' }, end: { dateTime: '2026-10-31T11:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T11:30:00-05:00' }, end: { dateTime: '2026-10-31T12:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T12:30:00-05:00' }, end: { dateTime: '2026-10-31T13:15:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-10-31T13:30:00-05:00' }, end: { dateTime: '2026-10-31T14:30:00-05:00' }, status: 'confirmed' },
+  // Monday Nov 2 (Week 2)
+  { start: { dateTime: '2026-11-02T15:30:00-05:00' }, end: { dateTime: '2026-11-02T16:15:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T16:15:00-05:00' }, end: { dateTime: '2026-11-02T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T17:00:00-05:00' }, end: { dateTime: '2026-11-02T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T18:00:00-05:00' }, end: { dateTime: '2026-11-02T19:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T19:00:00-05:00' }, end: { dateTime: '2026-11-02T20:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T20:00:00-05:00' }, end: { dateTime: '2026-11-02T21:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-02T21:00:00-05:00' }, end: { dateTime: '2026-11-02T22:00:00-05:00' }, status: 'confirmed' },
+  // Tuesday Nov 3 (Week 2)
+  { start: { dateTime: '2026-11-03T16:00:00-05:00' }, end: { dateTime: '2026-11-03T17:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-03T17:00:00-05:00' }, end: { dateTime: '2026-11-03T18:00:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-03T18:00:00-05:00' }, end: { dateTime: '2026-11-03T18:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-03T18:30:00-05:00' }, end: { dateTime: '2026-11-03T19:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-03T19:30:00-05:00' }, end: { dateTime: '2026-11-03T20:30:00-05:00' }, status: 'confirmed' },
+  { start: { dateTime: '2026-11-03T21:30:00-05:00' }, end: { dateTime: '2026-11-03T22:30:00-05:00' }, status: 'confirmed' }
+];
+
+// Initialize rolling availability synchronously
+recalculateRollingAvailability(INITIAL_CALENDAR_EVENTS);
+
+function applyCalendarEventsToAvailability(calendarItems) {
+  recalculateRollingAvailability(calendarItems);
 }
 
 async function syncWithGoogleCalendarInBackground() {
@@ -388,23 +542,17 @@ async function syncWithGoogleCalendarInBackground() {
     if (GOOGLE_CALENDAR_CONFIG.syncEndpoint) {
       url = GOOGLE_CALENDAR_CONFIG.syncEndpoint;
     } else if (GOOGLE_CALENDAR_CONFIG.apiKey && GOOGLE_CALENDAR_CONFIG.calendarId) {
-      // Compute active week's Monday 00:00 to Sunday 23:59:59 (on Sunday, preview upcoming week)
       const now = new Date();
-      const day = now.getDay();
-      const diffToMonday = day === 0 ? 1 : 1 - day;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() + diffToMonday);
-      monday.setHours(0, 0, 0, 0);
-
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
+      const ptParts = getPTDateParts(now);
+      const currentMonday = getMondayOfCurrentWeek(ptParts);
+      const twoWeeksLater = new Date(currentMonday.getTime());
+      twoWeeksLater.setUTCDate(twoWeeksLater.getUTCDate() + 14);
 
       url = 'https://www.googleapis.com/calendar/v3/calendars/' +
         encodeURIComponent(GOOGLE_CALENDAR_CONFIG.calendarId) +
         '/events?singleEvents=true&orderBy=startTime' +
-        '&timeMin=' + encodeURIComponent(monday.toISOString()) +
-        '&timeMax=' + encodeURIComponent(sunday.toISOString()) +
+        '&timeMin=' + encodeURIComponent(currentMonday.toISOString()) +
+        '&timeMax=' + encodeURIComponent(twoWeeksLater.toISOString()) +
         '&key=' + encodeURIComponent(GOOGLE_CALENDAR_CONFIG.apiKey);
     }
 
@@ -417,7 +565,7 @@ async function syncWithGoogleCalendarInBackground() {
       applyCalendarEventsToAvailability(data.items);
     }
   } catch (e) {
-    // Fallback silently to pre-synchronized baseAvailableSlots
+    // Fallback silently to pre-synchronized availability
   }
 }
 
@@ -438,7 +586,6 @@ function formatTimeLabel(floatHour24) {
 }
 
 function renderCalendar() {
-  // 0. Update week days and current time dynamically for the selected timezone
   updateWeekDays(currentTz);
   const currentTimeInfo = getCurrentTimeInfo(currentTz);
 
@@ -516,13 +663,15 @@ function renderCalendar() {
 
         chip.className = 'event-chip' + (isSelected ? ' selected' : '');
         chip.innerText = isSelected ? '✓ Selected' : (evt.durationHours === 0.5 ? formatTimeLabel(finalHour) : 'Available');
-        chip.title = timeRangeText;
+        chip.title = timeRangeText + (evt.isNextWeek ? ' (Next week)' : '');
         chip.style.top = topPx + 'px';
         chip.style.height = heightPx + 'px';
 
         chip.onclick = (e) => {
           e.stopPropagation();
-          toggleSlotSelection(slotKey, weekDays[targetDayIdx].full, timeRangeText);
+          const dayName = weekDays[targetDayIdx].name;
+          const dayLabel = evt.isNextWeek ? (dayName + ' (Next week)') : dayName;
+          toggleSlotSelection(slotKey, dayLabel, timeRangeText);
         };
 
         dayCol.appendChild(chip);
@@ -540,9 +689,12 @@ function updateLiveTimeIndicator() {
   }
 }
 
-// Update current time indicator every 30 seconds
+// Update current time indicator and re-evaluate rolling slots every 60 seconds
 if (typeof setInterval !== 'undefined') {
-  setInterval(updateLiveTimeIndicator, 30000);
+  setInterval(() => {
+    updateLiveTimeIndicator();
+    recalculateRollingAvailability();
+  }, 60000);
 }
 
 function toggleSlotSelection(slotKey, dayText, timeText) {
@@ -585,7 +737,7 @@ function changeTimezone(newTz, shouldRedirect) {
   if (tzSelect && tzSelect.value !== currentTz) {
     tzSelect.value = currentTz;
   }
-  renderCalendar();
+  recalculateRollingAvailability();
 
   if (shouldRedirect && timezonePages[currentTz]) {
     const targetPage = timezonePages[currentTz];
@@ -597,13 +749,11 @@ function changeTimezone(newTz, shouldRedirect) {
 }
 
 function detectInitialTimezone() {
-  // 1. Explicit data-tz attribute on html or body (used by dedicated pages)
   const docTz = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz')));
   if (docTz && timezoneOffsets[docTz] !== undefined) {
     return docTz;
   }
 
-  // 2. Query parameter (?tz=wa, ?tz=london, ?tz=peru, ?tz=rome, etc.)
   try {
     const params = new URLSearchParams(window.location.search);
     const tzParam = params.get('tz');
@@ -614,7 +764,6 @@ function detectInitialTimezone() {
     }
   } catch (e) {}
 
-  // 3. Browser Timezone Auto-Detection Fallback
   try {
     if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -629,7 +778,6 @@ function detectInitialTimezone() {
     }
   } catch (e) {}
 
-  // 4. Current dropdown value or default
   const tzSelect = typeof document !== 'undefined' ? document.getElementById('tz-select') : null;
   if (tzSelect && tzSelect.value && timezoneOffsets[tzSelect.value] !== undefined) {
     return tzSelect.value;
@@ -721,7 +869,7 @@ function initCalendar() {
     });
   }
 
-  renderCalendar();
+  recalculateRollingAvailability();
   syncWithGoogleCalendarInBackground();
 
   setTimeout(() => {
@@ -743,7 +891,7 @@ if (typeof document !== 'undefined') {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
-    renderCalendar();
+    recalculateRollingAvailability();
     const scrollArea = document.getElementById('scroll-area');
     if (scrollArea && scrollArea.scrollTop === 0) {
       const info = getCurrentTimeInfo(currentTz);
