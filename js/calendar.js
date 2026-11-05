@@ -1,18 +1,26 @@
 /**
  * Spanish Classes with Yill - Calendar & Availability Logic
  *
+ * Base Reference Timezone: America/Lima (Peru Time, PET, UTC-5).
+ * Peru Time is the constant local anchor (it does not observe Daylight Saving Time).
+ * Availability is defined in Peru Time and automatically adapts to other countries
+ * (Washington PT, London GMT/BST, Rome CET/CEST) dynamically, even when they change
+ * their clocks for Daylight Saving Time.
+ *
  * Rules Enforced:
- * 1. Sync with Google Calendar: Automatically calculates available 30-min slots by removing any timed busy conflicts.
- * 2. Keep Sundays unavailable: Sunday (dayIdx 6) is strictly locked to [] under all circumstances.
- * 3. Ignore all-day events: Events without specific start/end dateTime (i.e. start.date only) are ignored.
- * 4. Display recurring weekdays only: Headers show only Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday (no specific calendar date numbers).
+ * 1. Sync with Google Calendar: Automatically removes timed busy conflicts.
+ * 2. Keep Sundays unavailable: Sundays are strictly locked to [] under all circumstances.
+ * 3. Ignore all-day events: Events without specific start/end dateTime are ignored.
+ * 4. Display recurring weekdays only: Column headers show only Monday to Sunday.
  * 5. Dynamic Rolling Availability:
  *    - Days that already passed this week: take availability of next week.
- *    - Days that have not yet arrived this week: take availability of this week.
+ *    - Days that have not yet arrived: take availability of this week.
  *    - Hours that already passed today: take availability of the same day next week.
  *    - Hours that have not passed today: take availability of today.
- *    - 1-hour slots are prioritized, 30-minute slots used only when necessary.
+ *    - 1-hour slots are prioritized, 30-min slots used only when necessary.
  */
+
+const BASE_TIMEZONE = 'America/Lima';
 
 let weekDays = [];
 
@@ -92,9 +100,9 @@ function getCurrentTimeInfo(tz) {
   }
 }
 
-function getPTDateParts(dateObj) {
+function getZonedDateParts(dateObj, tz) {
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -121,9 +129,9 @@ function getPTDateParts(dateObj) {
   };
 }
 
-function getMondayOfCurrentWeek(ptParts) {
-  const d = new Date(Date.UTC(ptParts.year, ptParts.month - 1, ptParts.day));
-  d.setUTCDate(d.getUTCDate() - ptParts.dayIdx);
+function getMondayOfCurrentWeek(zonedParts) {
+  const d = new Date(Date.UTC(zonedParts.year, zonedParts.month - 1, zonedParts.day));
+  d.setUTCDate(d.getUTCDate() - zonedParts.dayIdx);
   return d;
 }
 
@@ -136,13 +144,16 @@ function getTargetDateStr(currentMondayUTC, daysOffset) {
   return `${y}-${m}-${day}`;
 }
 
-const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
-
-function getDynamicTimezoneOffset(targetTz) {
-  if (!targetTz || targetTz === 'America/Los_Angeles') return 0;
+/**
+ * Dynamically computes the exact hour difference from Peru (America/Lima) to target timezone.
+ * In Peru, offset is always 0 (Peru time NEVER changes).
+ * In other countries, this automatically updates whenever they change to/from Daylight Saving Time.
+ */
+function getOffsetHoursFromPeru(targetTz) {
+  if (!targetTz || targetTz === BASE_TIMEZONE) return 0;
   try {
     const now = new Date();
-    function getParts(tz) {
+    function getZonedDate(tz) {
       const f = new Intl.DateTimeFormat('en-US', {
         timeZone: tz,
         year: 'numeric', month: 'numeric', day: 'numeric',
@@ -155,29 +166,39 @@ function getDynamicTimezoneOffset(targetTz) {
       if (h === 24) h = 0;
       return new Date(Date.UTC(p.year, p.month - 1, p.day, h, parseInt(p.minute, 10), parseInt(p.second, 10)));
     }
-    const ptDate = getParts('America/Los_Angeles');
-    const targetDate = getParts(targetTz);
-    return Math.round((targetDate.getTime() - ptDate.getTime()) / (1000 * 60 * 60));
+    const peruDate = getZonedDate(BASE_TIMEZONE);
+    const targetDate = getZonedDate(targetTz);
+    return Math.round((targetDate.getTime() - peruDate.getTime()) / (1000 * 60 * 60));
   } catch (e) {
-    const fallbacks = { 'America/Lima': 3, 'Europe/London': 8, 'Europe/Rome': 9, 'America/Los_Angeles': 0 };
+    const fallbacks = {
+      'America/Lima': 0,
+      'America/Los_Angeles': -3,
+      'Europe/London': 5,
+      'Europe/Rome': 6
+    };
     return fallbacks[targetTz] !== undefined ? fallbacks[targetTz] : 0;
   }
 }
 
 const timezoneOffsets = new Proxy({}, {
   get: function(target, prop) {
-    return getDynamicTimezoneOffset(prop);
+    return getOffsetHoursFromPeru(prop);
   }
 });
 
+const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
+
 const timezonePages = {
-  'America/Los_Angeles': 'washington.html',
   'America/Lima': 'peru.html',
+  'America/Los_Angeles': 'washington.html',
   'Europe/London': 'london.html',
   'Europe/Rome': 'rome.html'
 };
 
 const autoTzMap = {
+  'America/Lima': 'America/Lima',
+  'America/Bogota': 'America/Lima',
+  'America/Guayaquil': 'America/Lima',
   'America/Los_Angeles': 'America/Los_Angeles',
   'America/Vancouver': 'America/Los_Angeles',
   'America/Tijuana': 'America/Los_Angeles',
@@ -194,19 +215,20 @@ const autoTzMap = {
   'Europe/Vienna': 'Europe/Rome',
   'Europe/Zurich': 'Europe/Rome',
   'Europe/Prague': 'Europe/Rome',
-  'Europe/Warsaw': 'Europe/Rome',
-  'America/Lima': 'America/Lima'
+  'Europe/Warsaw': 'Europe/Rome'
 };
 
 const timezoneAliases = {
+  'peru': 'America/Lima',
+  'lima': 'America/Lima',
+  'pet': 'America/Lima',
   'wa': 'America/Los_Angeles',
   'washington': 'America/Los_Angeles',
   'pt': 'America/Los_Angeles',
   'us': 'America/Los_Angeles',
   'usa': 'America/Los_Angeles',
-  'peru': 'America/Lima',
-  'lima': 'America/Lima',
-  'pet': 'America/Lima',
+  'pst': 'America/Los_Angeles',
+  'pdt': 'America/Los_Angeles',
   'london': 'Europe/London',
   'england': 'Europe/London',
   'uk': 'Europe/London',
@@ -219,15 +241,15 @@ const timezoneAliases = {
   'cest': 'Europe/Rome'
 };
 
-let currentTz = 'America/Los_Angeles';
+let currentTz = BASE_TIMEZONE;
 
-// Daily working window in Washington PT (6:00 AM to 10:00 PM PT = 8:00 AM to 12:00 AM PET)
-const DEFAULT_WORKING_HOURS_PT = Array.from({ length: 32 }, (_, i) => 6.0 + i * 0.5);
+// Daily working window defined in Peru Time (8:00 AM to 12:00 AM midnight PET)
+const DEFAULT_WORKING_HOURS_PERU = Array.from({ length: 32 }, (_, i) => 8.0 + i * 0.5);
 
 // Background Google Calendar Sync Configuration
 const GOOGLE_CALENDAR_CONFIG = {
   calendarId: 'yill.salvatore@gmail.com',
-  apiKey: '',       // Optional: Google Calendar API key (if calendar free/busy is public)
+  apiKey: '',
   syncEndpoint: 'https://script.google.com/macros/s/AKfycbzw_LUK6FT81-gvA1hFCD3GU8kh_3XN0jtii0XxjqYDyRJJjzjgwIM1k7IqpMVkmp_g/exec'
 };
 
@@ -297,11 +319,12 @@ let latestRawCalendarItems = [];
 
 /**
  * Dynamic Rolling Availability Engine
- * Computes availability strictly following:
- * - Days that already passed this week: take availability of next week
- * - Days that have not yet arrived this week: take availability of this week
- * - Hours that already passed today: take availability of the same day next week
- * - Hours that have not passed today: take availability of today
+ * Base anchor: America/Lima (Peru Time).
+ * Evaluates:
+ * - Days that already passed this week in Peru: take availability of next week
+ * - Days that have not yet arrived this week in Peru: take availability of this week
+ * - Hours that already passed today in Peru: take availability of the same day next week
+ * - Hours that have not passed today in Peru: take availability of today
  * - Sunday: strictly locked as unavailable under all circumstances
  */
 function recalculateRollingAvailability(calendarItems) {
@@ -311,15 +334,15 @@ function recalculateRollingAvailability(calendarItems) {
   const items = latestRawCalendarItems || [];
 
   const now = new Date();
-  const ptParts = getPTDateParts(now);
-  const currentDayIdx = ptParts.dayIdx;
-  const currentHourFloat = ptParts.floatHour;
-  const currentMonday = getMondayOfCurrentWeek(ptParts);
+  const peruParts = getZonedDateParts(now, BASE_TIMEZONE);
+  const currentDayIdx = peruParts.dayIdx;
+  const currentHourFloat = peruParts.floatHour;
+  const currentMonday = getMondayOfCurrentWeek(peruParts);
 
-  // Parse all timed non-transparent events into PT
+  // Parse all timed non-transparent events into Peru Time (America/Lima)
   const parsedEvents = [];
-  const ptFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
+  const peruFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: BASE_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -340,9 +363,9 @@ function recalculateRollingAvailability(calendarItems) {
     if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) return;
 
     const sParts = {};
-    ptFormatter.formatToParts(sDate).forEach(p => { sParts[p.type] = p.value; });
+    peruFormatter.formatToParts(sDate).forEach(p => { sParts[p.type] = p.value; });
     const eParts = {};
-    ptFormatter.formatToParts(eDate).forEach(p => { eParts[p.type] = p.value; });
+    peruFormatter.formatToParts(eDate).forEach(p => { eParts[p.type] = p.value; });
 
     let sH = parseInt(sParts.hour, 10) || 0;
     if (sH === 24) sH = 0;
@@ -381,7 +404,7 @@ function recalculateRollingAvailability(calendarItems) {
     const freePastHours = [];   // Belongs to next week
     const freeFutureHours = []; // Belongs to this week
 
-    DEFAULT_WORKING_HOURS_PT.forEach(h => {
+    DEFAULT_WORKING_HOURS_PERU.forEach(h => {
       const slotS = h;
       const slotE = h + 0.5;
 
@@ -389,15 +412,15 @@ function recalculateRollingAvailability(calendarItems) {
       let daysOffset = 0;
 
       if (d < currentDayIdx) {
-        // Day already passed this week -> Next week
+        // Day already passed this week in Peru -> Next week
         isNextWeek = true;
         daysOffset = 7 + d;
       } else if (d > currentDayIdx) {
-        // Day has not yet arrived this week -> This week
+        // Day has not yet arrived this week in Peru -> This week
         isNextWeek = false;
         daysOffset = d;
       } else {
-        // Today!
+        // Today in Peru!
         if (h < currentHourFloat) {
           // Hour already passed today -> Next week
           isNextWeek = true;
@@ -492,578 +515,87 @@ function recalculateRollingAvailability(calendarItems) {
   renderCalendar();
 }
 
-// Initial pre-synchronized events covering current & next week
+// Initial pre-synchronized events covering current & next week (in Peru Time UTC-5)
 const INITIAL_CALENDAR_EVENTS = [
-  {
-    "start": {
-      "dateTime": "2026-11-02T13:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T14:15:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T14:15:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T17:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T17:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T18:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T18:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T19:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-02T19:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-02T20:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T14:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T16:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T16:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T17:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T18:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-03T19:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-03T20:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T10:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T11:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T13:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T14:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T14:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T17:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T17:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T18:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T19:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-04T19:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-04T20:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-05T13:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-05T14:15:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-05T14:15:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-05T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-05T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-05T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-05T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-05T16:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-05T16:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-05T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-06T14:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-06T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-06T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-06T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-06T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-06T17:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-06T17:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-06T18:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T06:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T06:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T06:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T07:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T08:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T08:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T08:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T09:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T09:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T10:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T10:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T11:15:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-07T11:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-07T12:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T13:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T14:15:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T14:15:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T17:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T17:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T18:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T18:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T19:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-09T19:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-09T20:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T14:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T16:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T16:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T17:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T18:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-10T19:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-10T20:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T10:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T11:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T13:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T14:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T14:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T17:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T17:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T18:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T19:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-11T19:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-11T20:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-12T13:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-12T14:15:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-12T14:15:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-12T15:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-12T15:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-12T16:00:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-12T16:00:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-12T16:30:00-08:00"
-    },
-    "status": "confirmed"
-  },
-  {
-    "start": {
-      "dateTime": "2026-11-12T16:30:00-08:00"
-    },
-    "end": {
-      "dateTime": "2026-11-12T17:30:00-08:00"
-    },
-    "status": "confirmed"
-  }
+  // Monday Nov 2 & Nov 9 (Kayla, Kailani, Suzie, Lena, Alex, Daniel, Adam)
+  { "start": { "dateTime": "2026-11-02T16:30:00-05:00" }, "end": { "dateTime": "2026-11-02T17:15:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T17:15:00-05:00" }, "end": { "dateTime": "2026-11-02T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T18:00:00-05:00" }, "end": { "dateTime": "2026-11-02T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T19:00:00-05:00" }, "end": { "dateTime": "2026-11-02T20:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T20:00:00-05:00" }, "end": { "dateTime": "2026-11-02T21:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T21:00:00-05:00" }, "end": { "dateTime": "2026-11-02T22:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-02T22:00:00-05:00" }, "end": { "dateTime": "2026-11-02T23:00:00-05:00" }, "status": "confirmed" },
+
+  // Tuesday Nov 3 & Nov 10 (Natalia, Suzie, Janae, Lena, Ruzgar, Lucas & Aleister)
+  { "start": { "dateTime": "2026-11-03T17:00:00-05:00" }, "end": { "dateTime": "2026-11-03T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-03T18:00:00-05:00" }, "end": { "dateTime": "2026-11-03T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-03T19:00:00-05:00" }, "end": { "dateTime": "2026-11-03T19:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-03T19:30:00-05:00" }, "end": { "dateTime": "2026-11-03T20:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-03T20:30:00-05:00" }, "end": { "dateTime": "2026-11-03T21:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-03T22:30:00-05:00" }, "end": { "dateTime": "2026-11-03T23:30:00-05:00" }, "status": "confirmed" },
+
+  // Wednesday Nov 4 & Nov 11 (WDD 330, Suzie, Benjamin, Belma, Oliver, Janae, Adam, Wesley & KC)
+  { "start": { "dateTime": "2026-11-04T13:00:00-05:00" }, "end": { "dateTime": "2026-11-04T14:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T16:00:00-05:00" }, "end": { "dateTime": "2026-11-04T17:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T17:00:00-05:00" }, "end": { "dateTime": "2026-11-04T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T18:00:00-05:00" }, "end": { "dateTime": "2026-11-04T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T19:00:00-05:00" }, "end": { "dateTime": "2026-11-04T20:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T20:00:00-05:00" }, "end": { "dateTime": "2026-11-04T20:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T21:30:00-05:00" }, "end": { "dateTime": "2026-11-04T22:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-04T22:30:00-05:00" }, "end": { "dateTime": "2026-11-04T23:30:00-05:00" }, "status": "confirmed" },
+
+  // Thursday Nov 5 & Nov 12 (Kayla, Kailani, Suzie, Janae, Lena)
+  { "start": { "dateTime": "2026-11-05T16:30:00-05:00" }, "end": { "dateTime": "2026-11-05T17:15:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-05T17:15:00-05:00" }, "end": { "dateTime": "2026-11-05T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-05T18:00:00-05:00" }, "end": { "dateTime": "2026-11-05T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-05T19:00:00-05:00" }, "end": { "dateTime": "2026-11-05T19:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-05T19:30:00-05:00" }, "end": { "dateTime": "2026-11-05T20:30:00-05:00" }, "status": "confirmed" },
+
+  // Friday Nov 6 & Nov 13 (Natalia, Suzie, Lena, Teah)
+  { "start": { "dateTime": "2026-11-06T17:00:00-05:00" }, "end": { "dateTime": "2026-11-06T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-06T18:00:00-05:00" }, "end": { "dateTime": "2026-11-06T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-06T19:00:00-05:00" }, "end": { "dateTime": "2026-11-06T20:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-06T20:00:00-05:00" }, "end": { "dateTime": "2026-11-06T21:00:00-05:00" }, "status": "confirmed" },
+
+  // Saturday Nov 7 & Nov 14 (Macie-Brielle, Caiah, Adriel, Aleister Lucas y Eva, OB, Iana, Lena)
+  { "start": { "dateTime": "2026-11-07T09:00:00-05:00" }, "end": { "dateTime": "2026-11-07T09:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T09:30:00-05:00" }, "end": { "dateTime": "2026-11-07T10:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T11:00:00-05:00" }, "end": { "dateTime": "2026-11-07T11:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T11:30:00-05:00" }, "end": { "dateTime": "2026-11-07T12:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T12:30:00-05:00" }, "end": { "dateTime": "2026-11-07T13:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T13:30:00-05:00" }, "end": { "dateTime": "2026-11-07T14:15:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-07T14:30:00-05:00" }, "end": { "dateTime": "2026-11-07T15:30:00-05:00" }, "status": "confirmed" },
+
+  // Week 2 events
+  { "start": { "dateTime": "2026-11-09T16:30:00-05:00" }, "end": { "dateTime": "2026-11-09T17:15:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T17:15:00-05:00" }, "end": { "dateTime": "2026-11-09T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T18:00:00-05:00" }, "end": { "dateTime": "2026-11-09T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T19:00:00-05:00" }, "end": { "dateTime": "2026-11-09T20:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T20:00:00-05:00" }, "end": { "dateTime": "2026-11-09T21:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T21:00:00-05:00" }, "end": { "dateTime": "2026-11-09T22:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-09T22:00:00-05:00" }, "end": { "dateTime": "2026-11-09T23:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T17:00:00-05:00" }, "end": { "dateTime": "2026-11-10T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T18:00:00-05:00" }, "end": { "dateTime": "2026-11-10T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T19:00:00-05:00" }, "end": { "dateTime": "2026-11-10T19:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T19:30:00-05:00" }, "end": { "dateTime": "2026-11-10T20:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T20:30:00-05:00" }, "end": { "dateTime": "2026-11-10T21:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-10T22:30:00-05:00" }, "end": { "dateTime": "2026-11-10T23:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T13:00:00-05:00" }, "end": { "dateTime": "2026-11-11T14:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T16:00:00-05:00" }, "end": { "dateTime": "2026-11-11T17:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T17:00:00-05:00" }, "end": { "dateTime": "2026-11-11T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T18:00:00-05:00" }, "end": { "dateTime": "2026-11-11T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T19:00:00-05:00" }, "end": { "dateTime": "2026-11-11T20:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T20:00:00-05:00" }, "end": { "dateTime": "2026-11-11T20:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T21:30:00-05:00" }, "end": { "dateTime": "2026-11-11T22:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-11T22:30:00-05:00" }, "end": { "dateTime": "2026-11-11T23:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-12T16:30:00-05:00" }, "end": { "dateTime": "2026-11-12T17:15:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-12T17:15:00-05:00" }, "end": { "dateTime": "2026-11-12T18:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-12T18:00:00-05:00" }, "end": { "dateTime": "2026-11-12T19:00:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-12T19:00:00-05:00" }, "end": { "dateTime": "2026-11-12T19:30:00-05:00" }, "status": "confirmed" },
+  { "start": { "dateTime": "2026-11-12T19:30:00-05:00" }, "end": { "dateTime": "2026-11-12T20:30:00-05:00" }, "status": "confirmed" }
 ];
 
-// Initialize rolling availability synchronously
+// Initialize rolling availability synchronously in Peru Time
 recalculateRollingAvailability(INITIAL_CALENDAR_EVENTS);
 
 function applyCalendarEventsToAvailability(calendarItems) {
@@ -1077,8 +609,8 @@ async function syncWithGoogleCalendarInBackground() {
       url = GOOGLE_CALENDAR_CONFIG.syncEndpoint;
     } else if (GOOGLE_CALENDAR_CONFIG.apiKey && GOOGLE_CALENDAR_CONFIG.calendarId) {
       const now = new Date();
-      const ptParts = getPTDateParts(now);
-      const currentMonday = getMondayOfCurrentWeek(ptParts);
+      const peruParts = getZonedDateParts(now, BASE_TIMEZONE);
+      const currentMonday = getMondayOfCurrentWeek(peruParts);
       const twoWeeksLater = new Date(currentMonday.getTime());
       twoWeeksLater.setUTCDate(twoWeeksLater.getUTCDate() + 14);
 
@@ -1174,8 +706,8 @@ function renderCalendar() {
     daysGrid.appendChild(dayCol);
   });
 
-  // 4. Render Event Chips
-  const offset = timezoneOffsets[currentTz] !== undefined ? timezoneOffsets[currentTz] : 0;
+  // 4. Render Event Chips dynamically converted from Peru Time to currentTz
+  const offset = getOffsetHoursFromPeru(currentTz);
 
   baseEvents.forEach(evt => {
     let adjustedHour = evt.startHour + offset;
@@ -1264,9 +796,8 @@ function updateTopBadge() {
 
 function changeTimezone(newTz, shouldRedirect) {
   if (shouldRedirect === undefined) shouldRedirect = true;
-  if (timezoneOffsets[newTz] !== undefined) {
-    currentTz = newTz;
-  }
+  currentTz = newTz || BASE_TIMEZONE;
+
   const tzSelect = document.getElementById('tz-select');
   if (tzSelect && tzSelect.value !== currentTz) {
     tzSelect.value = currentTz;
@@ -1284,7 +815,7 @@ function changeTimezone(newTz, shouldRedirect) {
 
 function detectInitialTimezone() {
   const docTz = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-tz') || (document.body && document.body.getAttribute('data-tz')));
-  if (docTz && timezoneOffsets[docTz] !== undefined) {
+  if (docTz && timezonePages[docTz]) {
     return docTz;
   }
 
@@ -1293,7 +824,7 @@ function detectInitialTimezone() {
     const tzParam = params.get('tz');
     if (tzParam) {
       const lower = tzParam.toLowerCase();
-      if (timezoneOffsets[tzParam] !== undefined) return tzParam;
+      if (timezonePages[tzParam]) return tzParam;
       if (timezoneAliases[lower]) return timezoneAliases[lower];
     }
   } catch (e) {}
@@ -1302,22 +833,22 @@ function detectInitialTimezone() {
     if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (detected) {
-        if (timezoneOffsets[detected] !== undefined) return detected;
+        if (timezonePages[detected]) return detected;
         if (autoTzMap[detected]) return autoTzMap[detected];
+        if (detected.includes('Lima') || detected.includes('Bogota') || detected.includes('Quito')) return 'America/Lima';
         if (detected.includes('London') || detected.includes('Dublin')) return 'Europe/London';
         if (detected.startsWith('Europe/')) return 'Europe/Rome';
-        if (detected.includes('Lima') || detected.includes('Bogota') || detected.includes('Quito')) return 'America/Lima';
         if (detected.includes('Los_Angeles') || detected.includes('Vancouver') || detected.includes('Tijuana')) return 'America/Los_Angeles';
       }
     }
   } catch (e) {}
 
   const tzSelect = typeof document !== 'undefined' ? document.getElementById('tz-select') : null;
-  if (tzSelect && tzSelect.value && timezoneOffsets[tzSelect.value] !== undefined) {
+  if (tzSelect && tzSelect.value && timezonePages[tzSelect.value]) {
     return tzSelect.value;
   }
 
-  return 'America/Los_Angeles';
+  return BASE_TIMEZONE;
 }
 
 function openBookingModal() {
