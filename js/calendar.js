@@ -138,12 +138,37 @@ function getTargetDateStr(currentMondayUTC, daysOffset) {
 
 const displayHours24 = Array.from({ length: 24 }, (_, i) => i);
 
-const timezoneOffsets = {
-  'America/Los_Angeles': 0, // Washington State (USA - PT)
-  'America/Lima': 2,        // Peru (PET)
-  'Europe/London': 8,       // England (BST/GMT)
-  'Europe/Rome': 9          // Italy (CEST/CET)
-};
+function getDynamicTimezoneOffset(targetTz) {
+  if (!targetTz || targetTz === 'America/Los_Angeles') return 0;
+  try {
+    const now = new Date();
+    function getParts(tz) {
+      const f = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+      });
+      const p = {};
+      f.formatToParts(now).forEach(x => { p[x.type] = x.value; });
+      let h = parseInt(p.hour, 10) || 0;
+      if (h === 24) h = 0;
+      return new Date(Date.UTC(p.year, p.month - 1, p.day, h, parseInt(p.minute, 10), parseInt(p.second, 10)));
+    }
+    const ptDate = getParts('America/Los_Angeles');
+    const targetDate = getParts(targetTz);
+    return Math.round((targetDate.getTime() - ptDate.getTime()) / (1000 * 60 * 60));
+  } catch (e) {
+    const fallbacks = { 'America/Lima': 3, 'Europe/London': 8, 'Europe/Rome': 9, 'America/Los_Angeles': 0 };
+    return fallbacks[targetTz] !== undefined ? fallbacks[targetTz] : 0;
+  }
+}
+
+const timezoneOffsets = new Proxy({}, {
+  get: function(target, prop) {
+    return getDynamicTimezoneOffset(prop);
+  }
+});
 
 const timezonePages = {
   'America/Los_Angeles': 'washington.html',
@@ -469,64 +494,573 @@ function recalculateRollingAvailability(calendarItems) {
 
 // Initial pre-synchronized events covering current & next week
 const INITIAL_CALENDAR_EVENTS = [
-  // Monday Oct 26
-  { start: { dateTime: '2026-10-26T15:30:00-05:00' }, end: { dateTime: '2026-10-26T16:15:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T16:15:00-05:00' }, end: { dateTime: '2026-10-26T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T17:00:00-05:00' }, end: { dateTime: '2026-10-26T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T18:00:00-05:00' }, end: { dateTime: '2026-10-26T19:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T19:00:00-05:00' }, end: { dateTime: '2026-10-26T20:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T20:00:00-05:00' }, end: { dateTime: '2026-10-26T21:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-26T21:00:00-05:00' }, end: { dateTime: '2026-10-26T22:00:00-05:00' }, status: 'confirmed' },
-  // Tuesday Oct 27
-  { start: { dateTime: '2026-10-27T16:00:00-05:00' }, end: { dateTime: '2026-10-27T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T17:00:00-05:00' }, end: { dateTime: '2026-10-27T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T18:00:00-05:00' }, end: { dateTime: '2026-10-27T18:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T18:30:00-05:00' }, end: { dateTime: '2026-10-27T19:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T19:30:00-05:00' }, end: { dateTime: '2026-10-27T20:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T20:30:00-05:00' }, end: { dateTime: '2026-10-27T21:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-27T21:30:00-05:00' }, end: { dateTime: '2026-10-27T22:30:00-05:00' }, status: 'confirmed' },
-  // Wednesday Oct 28
-  { start: { dateTime: '2026-10-28T15:00:00-05:00' }, end: { dateTime: '2026-10-28T16:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T16:00:00-05:00' }, end: { dateTime: '2026-10-28T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T17:00:00-05:00' }, end: { dateTime: '2026-10-28T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T18:00:00-05:00' }, end: { dateTime: '2026-10-28T19:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T19:00:00-05:00' }, end: { dateTime: '2026-10-28T19:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T20:30:00-05:00' }, end: { dateTime: '2026-10-28T21:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-28T21:30:00-05:00' }, end: { dateTime: '2026-10-28T22:30:00-05:00' }, status: 'confirmed' },
-  // Thursday Oct 29
-  { start: { dateTime: '2026-10-29T15:30:00-05:00' }, end: { dateTime: '2026-10-29T16:15:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-29T16:15:00-05:00' }, end: { dateTime: '2026-10-29T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-29T17:00:00-05:00' }, end: { dateTime: '2026-10-29T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-29T18:00:00-05:00' }, end: { dateTime: '2026-10-29T18:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-29T18:30:00-05:00' }, end: { dateTime: '2026-10-29T19:30:00-05:00' }, status: 'confirmed' },
-  // Friday Oct 30
-  { start: { dateTime: '2026-10-30T16:00:00-05:00' }, end: { dateTime: '2026-10-30T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-30T17:00:00-05:00' }, end: { dateTime: '2026-10-30T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-30T18:00:00-05:00' }, end: { dateTime: '2026-10-30T19:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-30T19:00:00-05:00' }, end: { dateTime: '2026-10-30T20:00:00-05:00' }, status: 'confirmed' },
-  // Saturday Oct 31
-  { start: { dateTime: '2026-10-31T09:00:00-05:00' }, end: { dateTime: '2026-10-31T09:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T09:30:00-05:00' }, end: { dateTime: '2026-10-31T10:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T10:00:00-05:00' }, end: { dateTime: '2026-10-31T10:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T10:30:00-05:00' }, end: { dateTime: '2026-10-31T11:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T11:30:00-05:00' }, end: { dateTime: '2026-10-31T12:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T12:30:00-05:00' }, end: { dateTime: '2026-10-31T13:15:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-10-31T13:30:00-05:00' }, end: { dateTime: '2026-10-31T14:30:00-05:00' }, status: 'confirmed' },
-  // Monday Nov 2 (Week 2)
-  { start: { dateTime: '2026-11-02T15:30:00-05:00' }, end: { dateTime: '2026-11-02T16:15:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T16:15:00-05:00' }, end: { dateTime: '2026-11-02T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T17:00:00-05:00' }, end: { dateTime: '2026-11-02T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T18:00:00-05:00' }, end: { dateTime: '2026-11-02T19:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T19:00:00-05:00' }, end: { dateTime: '2026-11-02T20:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T20:00:00-05:00' }, end: { dateTime: '2026-11-02T21:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-02T21:00:00-05:00' }, end: { dateTime: '2026-11-02T22:00:00-05:00' }, status: 'confirmed' },
-  // Tuesday Nov 3 (Week 2)
-  { start: { dateTime: '2026-11-03T16:00:00-05:00' }, end: { dateTime: '2026-11-03T17:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-03T17:00:00-05:00' }, end: { dateTime: '2026-11-03T18:00:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-03T18:00:00-05:00' }, end: { dateTime: '2026-11-03T18:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-03T18:30:00-05:00' }, end: { dateTime: '2026-11-03T19:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-03T19:30:00-05:00' }, end: { dateTime: '2026-11-03T20:30:00-05:00' }, status: 'confirmed' },
-  { start: { dateTime: '2026-11-03T21:30:00-05:00' }, end: { dateTime: '2026-11-03T22:30:00-05:00' }, status: 'confirmed' }
+  {
+    "start": {
+      "dateTime": "2026-11-02T13:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T14:15:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T14:15:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T17:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T17:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T18:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T18:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T19:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-02T19:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-02T20:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T14:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T16:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T16:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T17:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T18:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-03T19:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-03T20:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T10:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T11:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T13:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T14:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T14:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T17:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T17:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T18:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T19:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-04T19:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-04T20:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-05T13:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-05T14:15:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-05T14:15:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-05T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-05T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-05T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-05T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-05T16:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-05T16:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-05T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-06T14:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-06T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-06T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-06T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-06T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-06T17:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-06T17:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-06T18:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T06:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T06:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T06:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T07:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T08:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T08:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T08:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T09:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T09:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T10:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T10:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T11:15:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-07T11:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-07T12:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T13:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T14:15:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T14:15:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T17:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T17:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T18:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T18:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T19:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-09T19:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-09T20:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T14:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T16:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T16:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T17:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T18:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-10T19:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-10T20:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T10:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T11:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T13:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T14:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T14:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T17:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T17:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T18:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T19:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-11T19:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-11T20:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-12T13:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-12T14:15:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-12T14:15:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-12T15:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-12T15:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-12T16:00:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-12T16:00:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-12T16:30:00-08:00"
+    },
+    "status": "confirmed"
+  },
+  {
+    "start": {
+      "dateTime": "2026-11-12T16:30:00-08:00"
+    },
+    "end": {
+      "dateTime": "2026-11-12T17:30:00-08:00"
+    },
+    "status": "confirmed"
+  }
 ];
 
 // Initialize rolling availability synchronously
